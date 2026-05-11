@@ -1,1 +1,3625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QA Execution Reporting Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .dark .glass {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse 3s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        
+        .upload-zone {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-zone.dragover {
+            border-color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.1);
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-passed {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+        }
+        
+        .status-failed {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+        
+        .status-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #0ea5e9, #8b5cf6);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+        
+        .metric-card {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+        
+        .metric-card.success::before {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+        
+        .metric-card.danger::before {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+        
+        .metric-card.warning::before {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+        
+        .metric-card.info::before {
+            background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+        }
+        
+        .tab-active {
+            border-bottom: 2px solid #0ea5e9;
+            color: #0ea5e9;
+        }
+        
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-item:hover {
+            background: rgba(14, 165, 233, 0.1);
+        }
+        
+        .sidebar-item.active {
+            background: rgba(14, 165, 233, 0.15);
+            border-right: 3px solid #0ea5e9;
+        }
+        
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .tooltip {
+            position: relative;
+        }
+        
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 6px 12px;
+            background: #1e293b;
+            color: white;
+            font-size: 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+        
+        // ============================================
+        // CONTEXT & STATE MANAGEMENT
+        // ============================================
+        
+        const AppContext = createContext();
+        
+        const useApp = () => useContext(AppContext);
+        
+        // ============================================
+        // ICONS COMPONENT
+        // ============================================
+        
+        const Icons = {
+            Upload: () => (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            ),
+            Dashboard: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                </svg>
+            ),
+            Report: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            ),
+            Timeline: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                </svg>
+            ),
+            Search: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            ),
+            Settings: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            ),
+            Moon: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            ),
+            Sun: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            ),
+            Check: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+            ),
+            X: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            ),
+            Warning: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            ),
+            Download: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+            ),
+            File: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            ),
+            Folder: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+            ),
+            Clock: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            ),
+            Refresh: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            ),
+            Bug: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            ),
+            ChevronDown: () => (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            ),
+            ChevronRight: () => (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+            ),
+            Menu: () => (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            ),
+            AI: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+            ),
+            History: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            ),
+            Trash: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            ),
+            Filter: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+            ),
+            Eye: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+            ),
+            Zap: () => (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            ),
+        };
+        
+        // ============================================
+        // LOG PARSER ENGINE
+        // ============================================
+        
+        const LogParser = {
+            patterns: {
+                technicalName: /Technical Name\s*[:\-]\s*(.+)/gi,
+                transactionId: /Transaction\s*Id\s*[:\-]\s*([A-Za-z0-9\-]+)/gi,
+                contextId: /Context\s*Id\s*[:\-]\s*([A-Za-z0-9\-]+)/gi,
+                status: /Status\s*[:\-]\s*(PROCESSED|FAILED|PENDING|SUCCESS|ERROR|COMPLETED)/gi,
+                passed: /(Transaction\s+In\s+Passed|Test\s+Passed|PASSED|✓|passed)/gi,
+                failed: /(Transaction\s+In\s+Failed|Test\s+Failed|FAILED|✗|failed|Error|Exception)/gi,
+                retryCount: /(?:Total\s+)?retry\s+count\s*[:\-]\s*(\d+)/gi,
+                executionTime: /(?:Execution|Total)\s+(?:Time|Duration)\s*[:\-]\s*([\d.]+)\s*(ms|s|seconds?|milliseconds?)?/gi,
+                soapResponse: /Soap\s+Response\s*[:\-]?\s*(.+)/gi,
+                httpCode: /HTTP\s*(?:Status|Code|Response)?\s*[:\-]?\s*(\d{3})/gi,
+                authFailure: /(401\s+Unauthorized|403\s+Forbidden|Authentication\s+Failed|Auth\s+Error)/gi,
+                timeout: /(Timeout|Timed\s+Out|Connection\s+Timeout|Request\s+Timeout)/gi,
+                exception: /(Exception|Error|Failure)[\s:\-]+(.+)/gi,
+                timestamp: /(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/gi,
+                testCase: /(?:Test\s+Case|TestCase|TC)\s*[:\-#]?\s*([A-Za-z0-9_\-]+)/gi,
+                module: /(?:Module|Component|Feature)\s*[:\-]\s*(.+)/gi,
+                queryName: /(?:Query|Stored\s+Procedure|SP)\s*[:\-]\s*(.+)/gi,
+                validationTime: /Validation\s+(?:Time|Duration)\s*[:\-]\s*([\d.]+)\s*(ms|s)?/gi,
+                dbValidation: /(?:DB|Database)\s+Validation\s*[:\-]\s*(.+)/gi,
+                azurePipeline: /##\[(?:section|command|error|warning)\](.+)/gi,
+                vstestResult: /(?:Passed|Failed|Skipped)\s+(\w+)\s+\[(.+)\]/gi,
+                jmeterSample: /<httpSample\s+t="(\d+)"\s+.*?s="(true|false)".*?lb="([^"]+)"/gi,
+                allureStatus: /"status"\s*:\s*"(passed|failed|broken|skipped)"/gi,
+            },
+            
+            parse(content, fileName) {
+                const results = {
+                    fileName,
+                    fileType: this.detectFileType(fileName),
+                    transactions: [],
+                    summary: {
+                        total: 0,
+                        passed: 0,
+                        failed: 0,
+                        warnings: 0,
+                        avgExecutionTime: 0,
+                        totalRetries: 0,
+                        startTime: null,
+                        endTime: null,
+                    },
+                    errors: [],
+                    warnings: [],
+                    metadata: {},
+                    rawContent: content,
+                };
+                
+                try {
+                    switch (results.fileType) {
+                        case 'trx':
+                            return this.parseTRX(content, results);
+                        case 'jtl':
+                            return this.parseJTL(content, results);
+                        case 'xml':
+                            return this.parseXML(content, results);
+                        case 'allure':
+                            return this.parseAllure(content, results);
+                        default:
+                            return this.parseLog(content, results);
+                    }
+                } catch (error) {
+                    results.errors.push({
+                        type: 'PARSE_ERROR',
+                        message: error.message,
+                        stack: error.stack,
+                    });
+                    return results;
+                }
+            },
+            
+            detectFileType(fileName) {
+                const ext = fileName.toLowerCase().split('.').pop();
+                if (ext === 'trx') return 'trx';
+                if (ext === 'jtl') return 'jtl';
+                if (ext === 'xml') return 'xml';
+                if (ext === 'json') return 'allure';
+                return 'log';
+            },
+            
+            parseLog(content, results) {
+                const lines = content.split('\n');
+                let currentTransaction = null;
+                const transactions = [];
+                
+                lines.forEach((line, index) => {
+                    // Extract timestamps
+                    const timestampMatch = line.match(this.patterns.timestamp);
+                    if (timestampMatch) {
+                        const ts = new Date(timestampMatch[1]);
+                        if (!results.summary.startTime || ts < results.summary.startTime) {
+                            results.summary.startTime = ts;
+                        }
+                        if (!results.summary.endTime || ts > results.summary.endTime) {
+                            results.summary.endTime = ts;
+                        }
+                    }
+                    
+                    // Detect new transaction
+                    const techNameMatch = line.match(/Technical Name\s*[:\-]\s*(.+)/i);
+                    if (techNameMatch) {
+                        if (currentTransaction) {
+                            transactions.push(currentTransaction);
+                        }
+                        currentTransaction = {
+                            id: `TXN-${Date.now()}-${index}`,
+                            technicalName: techNameMatch[1].trim(),
+                            status: 'UNKNOWN',
+                            passed: null,
+                            retryCount: 0,
+                            executionTime: 0,
+                            timestamp: timestampMatch ? new Date(timestampMatch[1]) : new Date(),
+                            errors: [],
+                            warnings: [],
+                            metadata: {},
+                            lineNumber: index + 1,
+                        };
+                    }
+                    
+                    // Extract transaction details
+                    if (currentTransaction) {
+                        // Transaction ID
+                        const txnIdMatch = line.match(/Transaction\s*Id\s*[:\-]\s*([A-Za-z0-9\-]+)/i);
+                        if (txnIdMatch) {
+                            currentTransaction.transactionId = txnIdMatch[1];
+                        }
+                        
+                        // Context ID
+                        const ctxIdMatch = line.match(/Context\s*Id\s*[:\-]\s*([A-Za-z0-9\-]+)/i);
+                        if (ctxIdMatch) {
+                            currentTransaction.contextId = ctxIdMatch[1];
+                        }
+                        
+                        // Status
+                        const statusMatch = line.match(/Status\s*[:\-]\s*(PROCESSED|FAILED|PENDING|SUCCESS|ERROR|COMPLETED)/i);
+                        if (statusMatch) {
+                            currentTransaction.status = statusMatch[1].toUpperCase();
+                        }
+                        
+                        // Pass/Fail detection
+                        if (line.match(/Transaction\s+In\s+Passed|Test\s+Passed|\bPASSED\b|✓/i)) {
+                            currentTransaction.passed = true;
+                            currentTransaction.status = 'PASSED';
+                        }
+                        if (line.match(/Transaction\s+In\s+Failed|Test\s+Failed|\bFAILED\b|✗|Error|Exception/i)) {
+                            currentTransaction.passed = false;
+                            currentTransaction.status = 'FAILED';
+                        }
+                        
+                        // Retry count
+                        const retryMatch = line.match(/(?:Total\s+)?retry\s+count\s*[:\-]\s*(\d+)/i);
+                        if (retryMatch) {
+                            currentTransaction.retryCount = parseInt(retryMatch[1]);
+                        }
+                        
+                        // Execution time
+                        const timeMatch = line.match(/(?:Execution|Total)\s+(?:Time|Duration)\s*[:\-]\s*([\d.]+)\s*(ms|s|seconds?|milliseconds?)?/i);
+                        if (timeMatch) {
+                            let time = parseFloat(timeMatch[1]);
+                            if (timeMatch[2] && timeMatch[2].toLowerCase().startsWith('s')) {
+                                time *= 1000;
+                            }
+                            currentTransaction.executionTime = time;
+                        }
+                        
+                        // HTTP codes
+                        const httpMatch = line.match(/HTTP\s*(?:Status|Code|Response)?\s*[:\-]?\s*(\d{3})/i);
+                        if (httpMatch) {
+                            currentTransaction.httpCode = parseInt(httpMatch[1]);
+                            if (currentTransaction.httpCode >= 400) {
+                                currentTransaction.errors.push({
+                                    type: 'HTTP_ERROR',
+                                    code: currentTransaction.httpCode,
+                                    message: line.trim(),
+                                });
+                            }
+                        }
+                        
+                        // Auth failures
+                        if (line.match(/401\s+Unauthorized|403\s+Forbidden|Authentication\s+Failed/i)) {
+                            currentTransaction.errors.push({
+                                type: 'AUTH_FAILURE',
+                                message: line.trim(),
+                            });
+                            currentTransaction.passed = false;
+                            currentTransaction.status = 'FAILED';
+                        }
+                        
+                        // Timeouts
+                        if (line.match(/Timeout|Timed\s+Out|Connection\s+Timeout/i)) {
+                            currentTransaction.errors.push({
+                                type: 'TIMEOUT',
+                                message: line.trim(),
+                            });
+                        }
+                        
+                        // Exceptions
+                        const exceptionMatch = line.match(/(Exception|Error)[\s:\-]+(.+)/i);
+                        if (exceptionMatch) {
+                            currentTransaction.errors.push({
+                                type: 'EXCEPTION',
+                                name: exceptionMatch[1],
+                                message: exceptionMatch[2].trim(),
+                            });
+                        }
+                        
+                        // SOAP Response
+                        const soapMatch = line.match(/Soap\s+Response\s*[:\-]?\s*(.+)/i);
+                        if (soapMatch) {
+                            currentTransaction.metadata.soapResponse = soapMatch[1].trim();
+                        }
+                        
+                        // Query names
+                        const queryMatch = line.match(/(?:Query|Stored\s+Procedure|SP)\s*[:\-]\s*(.+)/i);
+                        if (queryMatch) {
+                            currentTransaction.metadata.queryName = queryMatch[1].trim();
+                        }
+                        
+                        // Validation time
+                        const validationMatch = line.match(/Validation\s+(?:Time|Duration)\s*[:\-]\s*([\d.]+)\s*(ms|s)?/i);
+                        if (validationMatch) {
+                            let time = parseFloat(validationMatch[1]);
+                            if (validationMatch[2] && validationMatch[2].toLowerCase() === 's') {
+                                time *= 1000;
+                            }
+                            currentTransaction.metadata.validationTime = time;
+                        }
+                        
+                        // Module
+                        const moduleMatch = line.match(/(?:Module|Component|Feature)\s*[:\-]\s*(.+)/i);
+                        if (moduleMatch) {
+                            currentTransaction.module = moduleMatch[1].trim();
+                        }
+                    }
+                    
+                    // Azure DevOps specific patterns
+                    const azureMatch = line.match(/##\[(?:section|command|error|warning)\](.+)/);
+                    if (azureMatch) {
+                        results.metadata.isAzureDevOps = true;
+                        if (line.includes('##[error]')) {
+                            results.errors.push({
+                                type: 'AZURE_PIPELINE_ERROR',
+                                message: azureMatch[1],
+                                lineNumber: index + 1,
+                            });
+                        }
+                    }
+                    
+                    // VSTest results
+                    const vstestMatch = line.match(/(?:Passed|Failed|Skipped)\s+(\w+)\s+\[(.+)\]/);
+                    if (vstestMatch) {
+                        results.metadata.isVSTest = true;
+                    }
+                });
+                
+                // Add last transaction
+                if (currentTransaction) {
+                    transactions.push(currentTransaction);
+                }
+                
+                // If no transactions found, create synthetic ones from patterns
+                if (transactions.length === 0) {
+                    transactions.push(...this.createSyntheticTransactions(content));
+                }
+                
+                results.transactions = transactions;
+                this.calculateSummary(results);
+                
+                return results;
+            },
+            
+            createSyntheticTransactions(content) {
+                const transactions = [];
+                const lines = content.split('\n');
+                
+                lines.forEach((line, index) => {
+                    // Look for any pass/fail indicators
+                    const passMatch = line.match(/\b(PASSED|SUCCESS|COMPLETED|OK)\b/i);
+                    const failMatch = line.match(/\b(FAILED|ERROR|FAILURE|EXCEPTION)\b/i);
+                    
+                    if (passMatch || failMatch) {
+                        transactions.push({
+                            id: `SYN-${Date.now()}-${index}`,
+                            technicalName: line.substring(0, 50).trim() || `Line ${index + 1}`,
+                            status: passMatch ? 'PASSED' : 'FAILED',
+                            passed: !!passMatch,
+                            retryCount: 0,
+                            executionTime: 0,
+                            timestamp: new Date(),
+                            errors: failMatch ? [{ type: 'DETECTED', message: line.trim() }] : [],
+                            warnings: [],
+                            metadata: {},
+                            lineNumber: index + 1,
+                        });
+                    }
+                });
+                
+                return transactions;
+            },
+            
+            parseTRX(content, results) {
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(content, 'text/xml');
+                    
+                    const unitTests = doc.querySelectorAll('UnitTestResult');
+                    
+                    unitTests.forEach((test, index) => {
+                        const outcome = test.getAttribute('outcome');
+                        const testName = test.getAttribute('testName');
+                        const duration = test.getAttribute('duration');
+                        const startTime = test.getAttribute('startTime');
+                        const endTime = test.getAttribute('endTime');
+                        
+                        const transaction = {
+                            id: test.getAttribute('testId') || `TRX-${index}`,
+                            technicalName: testName || `Test ${index + 1}`,
+                            status: outcome?.toUpperCase() || 'UNKNOWN',
+                            passed: outcome?.toLowerCase() === 'passed',
+                            retryCount: 0,
+                            executionTime: this.parseDuration(duration),
+                            timestamp: startTime ? new Date(startTime) : new Date(),
+                            endTime: endTime ? new Date(endTime) : null,
+                            errors: [],
+                            warnings: [],
+                            metadata: {},
+                            lineNumber: index + 1,
+                        };
+                        
+                        // Extract error info
+                        const errorInfo = test.querySelector('ErrorInfo');
+                        if (errorInfo) {
+                            const message = errorInfo.querySelector('Message');
+                            const stackTrace = errorInfo.querySelector('StackTrace');
+                            if (message) {
+                                transaction.errors.push({
+                                    type: 'TEST_FAILURE',
+                                    message: message.textContent,
+                                    stackTrace: stackTrace?.textContent,
+                                });
+                            }
+                        }
+                        
+                        results.transactions.push(transaction);
+                    });
+                    
+                    // Extract test run info
+                    const testRun = doc.querySelector('TestRun');
+                    if (testRun) {
+                        results.metadata.testRunName = testRun.getAttribute('name');
+                        results.metadata.runUser = testRun.getAttribute('runUser');
+                    }
+                    
+                    const times = doc.querySelector('Times');
+                    if (times) {
+                        results.summary.startTime = new Date(times.getAttribute('start'));
+                        results.summary.endTime = new Date(times.getAttribute('finish'));
+                    }
+                    
+                } catch (error) {
+                    results.errors.push({
+                        type: 'TRX_PARSE_ERROR',
+                        message: error.message,
+                    });
+                }
+                
+                this.calculateSummary(results);
+                return results;
+            },
+            
+            parseJTL(content, results) {
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(content, 'text/xml');
+                    
+                    const samples = doc.querySelectorAll('httpSample, sample');
+                    
+                    samples.forEach((sample, index) => {
+                        const success = sample.getAttribute('s') === 'true';
+                        const label = sample.getAttribute('lb');
+                        const time = parseInt(sample.getAttribute('t')) || 0;
+                        const timestamp = parseInt(sample.getAttribute('ts')) || Date.now();
+                        const responseCode = sample.getAttribute('rc');
+                        const responseMessage = sample.getAttribute('rm');
+                        
+                        const transaction = {
+                            id: `JTL-${index}`,
+                            technicalName: label || `Sample ${index + 1}`,
+                            status: success ? 'PASSED' : 'FAILED',
+                            passed: success,
+                            retryCount: 0,
+                            executionTime: time,
+                            timestamp: new Date(timestamp),
+                            httpCode: parseInt(responseCode) || null,
+                            errors: [],
+                            warnings: [],
+                            metadata: {
+                                responseMessage,
+                                bytes: sample.getAttribute('by'),
+                                latency: sample.getAttribute('lt'),
+                                connectTime: sample.getAttribute('ct'),
+                            },
+                            lineNumber: index + 1,
+                        };
+                        
+                        if (!success) {
+                            transaction.errors.push({
+                                type: 'JMETER_FAILURE',
+                                message: responseMessage || 'Request failed',
+                                code: responseCode,
+                            });
+                        }
+                        
+                        results.transactions.push(transaction);
+                    });
+                    
+                    results.metadata.isJMeter = true;
+                    
+                } catch (error) {
+                    // Try CSV format
+                    return this.parseJTLCSV(content, results);
+                }
+                
+                this.calculateSummary(results);
+                return results;
+            },
+            
+            parseJTLCSV(content, results) {
+                const lines = content.split('\n');
+                const headers = lines[0]?.split(',').map(h => h.trim().toLowerCase());
+                
+                if (!headers) return results;
+                
+                const timeIdx = headers.indexOf('elapsed') !== -1 ? headers.indexOf('elapsed') : headers.indexOf('t');
+                const labelIdx = headers.indexOf('label') !== -1 ? headers.indexOf('label') : headers.indexOf('lb');
+                const successIdx = headers.indexOf('success') !== -1 ? headers.indexOf('success') : headers.indexOf('s');
+                const timestampIdx = headers.indexOf('timestamp') !== -1 ? headers.indexOf('timestamp') : headers.indexOf('ts');
+                const responseCodeIdx = headers.indexOf('responsecode') !== -1 ? headers.indexOf('responsecode') : headers.indexOf('rc');
+                
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',');
+                    if (values.length < 3) continue;
+                    
+                    const success = values[successIdx]?.toLowerCase() === 'true';
+                    
+                    results.transactions.push({
+                        id: `JTL-CSV-${i}`,
+                        technicalName: values[labelIdx] || `Sample ${i}`,
+                        status: success ? 'PASSED' : 'FAILED',
+                        passed: success,
+                        retryCount: 0,
+                        executionTime: parseInt(values[timeIdx]) || 0,
+                        timestamp: new Date(parseInt(values[timestampIdx]) || Date.now()),
+                        httpCode: parseInt(values[responseCodeIdx]) || null,
+                        errors: success ? [] : [{ type: 'JMETER_FAILURE', message: 'Request failed' }],
+                        warnings: [],
+                        metadata: {},
+                        lineNumber: i,
+                    });
+                }
+                
+                results.metadata.isJMeter = true;
+                this.calculateSummary(results);
+                return results;
+            },
+            
+            parseXML(content, results) {
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(content, 'text/xml');
+                    
+                    // Try to detect format
+                    const root = doc.documentElement.tagName.toLowerCase();
+                    
+                    if (root === 'testsuites' || root === 'testsuite') {
+                        return this.parseJUnit(doc, results);
+                    }
+                    
+                    // Generic XML parsing
+                    const testCases = doc.querySelectorAll('testcase, TestCase, test-case');
+                    
+                    testCases.forEach((tc, index) => {
+                        const name = tc.getAttribute('name') || tc.getAttribute('Name') || `Test ${index + 1}`;
+                        const time = parseFloat(tc.getAttribute('time') || tc.getAttribute('Time') || '0');
+                        const failure = tc.querySelector('failure, Failure');
+                        const error = tc.querySelector('error, Error');
+                        const skipped = tc.querySelector('skipped, Skipped');
+                        
+                        let status = 'PASSED';
+                        let passed = true;
+                        const errors = [];
+                        
+                        if (failure) {
+                            status = 'FAILED';
+                            passed = false;
+                            errors.push({
+                                type: 'FAILURE',
+                                message: failure.getAttribute('message') || failure.textContent,
+                            });
+                        }
+                        if (error) {
+                            status = 'ERROR';
+                            passed = false;
+                            errors.push({
+                                type: 'ERROR',
+                                message: error.getAttribute('message') || error.textContent,
+                            });
+                        }
+                        if (skipped) {
+                            status = 'SKIPPED';
+                            passed = null;
+                        }
+                        
+                        results.transactions.push({
+                            id: `XML-${index}`,
+                            technicalName: name,
+                            status,
+                            passed,
+                            retryCount: 0,
+                            executionTime: time * 1000,
+                            timestamp: new Date(),
+                            errors,
+                            warnings: [],
+                            metadata: {
+                                className: tc.getAttribute('classname') || tc.getAttribute('ClassName'),
+                            },
+                            lineNumber: index + 1,
+                        });
+                    });
+                    
+                } catch (error) {
+                    results.errors.push({
+                        type: 'XML_PARSE_ERROR',
+                        message: error.message,
+                    });
+                }
+                
+                this.calculateSummary(results);
+                return results;
+            },
+            
+            parseJUnit(doc, results) {
+                const testCases = doc.querySelectorAll('testcase');
+                
+                testCases.forEach((tc, index) => {
+                    const name = tc.getAttribute('name');
+                    const className = tc.getAttribute('classname');
+                    const time = parseFloat(tc.getAttribute('time') || '0');
+                    
+                    const failure = tc.querySelector('failure');
+                    const error = tc.querySelector('error');
+                    const skipped = tc.querySelector('skipped');
+                    
+                    let status = 'PASSED';
+                    let passed = true;
+                    const errors = [];
+                    
+                    if (failure) {
+                        status = 'FAILED';
+                        passed = false;
+                        errors.push({
+                            type: 'ASSERTION_FAILURE',
+                            message: failure.getAttribute('message'),
+                            details: failure.textContent,
+                        });
+                    }
+                    if (error) {
+                        status = 'ERROR';
+                        passed = false;
+                        errors.push({
+                            type: 'ERROR',
+                            message: error.getAttribute('message'),
+                            details: error.textContent,
+                        });
+                    }
+                    if (skipped) {
+                        status = 'SKIPPED';
+                        passed = null;
+                    }
+                    
+                    results.transactions.push({
+                        id: `JUNIT-${index}`,
+                        technicalName: name,
+                        status,
+                        passed,
+                        retryCount: 0,
+                        executionTime: time * 1000,
+                        timestamp: new Date(),
+                        errors,
+                        warnings: [],
+                        metadata: {
+                            className,
+                            fullName: className ? `${className}.${name}` : name,
+                        },
+                        lineNumber: index + 1,
+                    });
+                });
+                
+                // Extract suite info
+                const suite = doc.querySelector('testsuite');
+                if (suite) {
+                    results.metadata.suiteName = suite.getAttribute('name');
+                    results.metadata.tests = suite.getAttribute('tests');
+                    results.metadata.failures = suite.getAttribute('failures');
+                    results.metadata.errors = suite.getAttribute('errors');
+                    results.metadata.time = suite.getAttribute('time');
+                }
+                
+                this.calculateSummary(results);
+                return results;
+            },
+            
+            parseAllure(content, results) {
+                try {
+                    const data = JSON.parse(content);
+                    
+                    // Handle different Allure JSON formats
+                    const testResults = Array.isArray(data) ? data : (data.testCases || data.results || [data]);
+                    
+                    testResults.forEach((test, index) => {
+                        const status = (test.status || 'unknown').toUpperCase();
+                        const passed = status === 'PASSED';
+                        
+                        results.transactions.push({
+                            id: test.uuid || test.id || `ALLURE-${index}`,
+                            technicalName: test.name || test.fullName || `Test ${index + 1}`,
+                            status,
+                            passed: status === 'PASSED' ? true : (status === 'FAILED' || status === 'BROKEN') ? false : null,
+                            retryCount: test.retries || 0,
+                            executionTime: test.time?.duration || test.duration || 0,
+                            timestamp: test.time?.start ? new Date(test.time.start) : new Date(),
+                            errors: [],
+                            warnings: [],
+                            metadata: {
+                                description: test.description,
+                                labels: test.labels,
+                                links: test.links,
+                                attachments: test.attachments,
+                                steps: test.steps,
+                                parameters: test.parameters,
+                            },
+                            lineNumber: index + 1,
+                        });
+                        
+                        if (test.statusDetails?.message) {
+                            results.transactions[results.transactions.length - 1].errors.push({
+                                type: 'ALLURE_FAILURE',
+                                message: test.statusDetails.message,
+                                trace: test.statusDetails.trace,
+                            });
+                        }
+                    });
+                    
+                    results.metadata.isAllure = true;
+                    
+                } catch (error) {
+                    results.errors.push({
+                        type: 'ALLURE_PARSE_ERROR',
+                        message: error.message,
+                    });
+                }
+                
+                this.calculateSummary(results);
+                return results;
+            },
+            
+            parseDuration(duration) {
+                if (!duration) return 0;
+                
+                // Format: HH:MM:SS.mmm
+                const parts = duration.split(':');
+                if (parts.length === 3) {
+                    const hours = parseInt(parts[0]) || 0;
+                    const minutes = parseInt(parts[1]) || 0;
+                    const seconds = parseFloat(parts[2]) || 0;
+                    return (hours * 3600 + minutes * 60 + seconds) * 1000;
+                }
+                
+                return parseFloat(duration) * 1000 || 0;
+            },
+            
+            calculateSummary(results) {
+                const { transactions } = results;
+                
+                results.summary.total = transactions.length;
+                results.summary.passed = transactions.filter(t => t.passed === true).length;
+                results.summary.failed = transactions.filter(t => t.passed === false).length;
+                results.summary.warnings = transactions.filter(t => t.warnings.length > 0).length;
+                
+                const executionTimes = transactions.filter(t => t.executionTime > 0).map(t => t.executionTime);
+                results.summary.avgExecutionTime = executionTimes.length > 0 
+                    ? executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length 
+                    : 0;
+                
+                results.summary.totalRetries = transactions.reduce((sum, t) => sum + (t.retryCount || 0), 0);
+                
+                results.summary.successRate = results.summary.total > 0 
+                    ? (results.summary.passed / results.summary.total) * 100 
+                    : 0;
+                
+                // Calculate time range
+                const timestamps = transactions.filter(t => t.timestamp).map(t => new Date(t.timestamp));
+                if (timestamps.length > 0) {
+                    results.summary.startTime = results.summary.startTime || new Date(Math.min(...timestamps));
+                    results.summary.endTime = results.summary.endTime || new Date(Math.max(...timestamps));
+                }
+            },
+        };
+        
+        // ============================================
+        // AI SUMMARY GENERATOR
+        // ============================================
+        
+        const AISummaryGenerator = {
+            generate(results) {
+                const { summary, transactions, errors } = results;
+                const summaries = [];
+                
+                // Overall execution summary
+                const successRate = summary.successRate.toFixed(1);
+                const status = successRate >= 95 ? 'successfully' : successRate >= 80 ? 'with some issues' : 'with significant failures';
+                
+                summaries.push({
+                    type: 'executive',
+                    title: 'Executive Summary',
+                    content: `Test execution completed ${status}. ${summary.passed} of ${summary.total} transactions processed successfully (${successRate}% success rate). ${summary.failed} failures detected. Average processing time was ${this.formatTime(summary.avgExecutionTime)}.`,
+                });
+                
+                // Performance insights
+                if (summary.avgExecutionTime > 0) {
+                    const slowTransactions = transactions.filter(t => t.executionTime > summary.avgExecutionTime * 2);
+                    if (slowTransactions.length > 0) {
+                        summaries.push({
+                            type: 'performance',
+                            title: 'Performance Analysis',
+                            content: `${slowTransactions.length} transactions exceeded the average execution time by more than 2x. The slowest transaction was "${slowTransactions[0]?.technicalName}" at ${this.formatTime(slowTransactions[0]?.executionTime)}.`,
+                        });
+                    }
+                }
+                
+                // Retry analysis
+                if (summary.totalRetries > 0) {
+                    const retriedTransactions = transactions.filter(t => t.retryCount > 0);
+                    summaries.push({
+                        type: 'retry',
+                        title: 'Retry Analysis',
+                        content: `${retriedTransactions.length} transactions required retries with a total of ${summary.totalRetries} retry attempts. This may indicate intermittent failures or environment instability.`,
+                    });
+                }
+                
+                // Failure analysis
+                if (summary.failed > 0) {
+                    const failedTransactions = transactions.filter(t => t.passed === false);
+                    const errorTypes = {};
+                    
+                    failedTransactions.forEach(t => {
+                        t.errors.forEach(e => {
+                            errorTypes[e.type] = (errorTypes[e.type] || 0) + 1;
+                        });
+                    });
+                    
+                    const topErrors = Object.entries(errorTypes)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 3)
+                        .map(([type, count]) => `${type} (${count})`)
+                        .join(', ');
+                    
+                    summaries.push({
+                        type: 'failure',
+                        title: 'Failure Analysis',
+                        content: `${summary.failed} transactions failed. Primary error types: ${topErrors || 'Unknown'}. Immediate attention recommended for critical failures.`,
+                    });
+                }
+                
+                // RCA suggestions
+                const rcaSuggestions = this.generateRCA(results);
+                if (rcaSuggestions.length > 0) {
+                    summaries.push({
+                        type: 'rca',
+                        title: 'Root Cause Analysis',
+                        content: rcaSuggestions.join(' '),
+                    });
+                }
+                
+                // Recommendations
+                const recommendations = this.generateRecommendations(results);
+                if (recommendations.length > 0) {
+                    summaries.push({
+                        type: 'recommendations',
+                        title: 'Recommendations',
+                        content: recommendations.join(' '),
+                    });
+                }
+                
+                return summaries;
+            },
+            
+            generateRCA(results) {
+                const suggestions = [];
+                const { transactions, errors } = results;
+                
+                // Auth failures
+                const authFailures = transactions.filter(t => 
+                    t.errors.some(e => e.type === 'AUTH_FAILURE' || e.message?.includes('401') || e.message?.includes('Unauthorized'))
+                );
+                if (authFailures.length > 0) {
+                    suggestions.push(`Authentication failures detected in ${authFailures.length} transactions. Verify credentials, tokens, and KeyVault configurations.`);
+                }
+                
+                // Timeouts
+                const timeouts = transactions.filter(t => 
+                    t.errors.some(e => e.type === 'TIMEOUT' || e.message?.toLowerCase().includes('timeout'))
+                );
+                if (timeouts.length > 0) {
+                    suggestions.push(`Timeout issues detected in ${timeouts.length} transactions. Consider increasing timeout thresholds or investigating network latency.`);
+                }
+                
+                // High retry counts
+                const highRetries = transactions.filter(t => t.retryCount >= 3);
+                if (highRetries.length > 0) {
+                    suggestions.push(`${highRetries.length} transactions required 3+ retries, indicating potential environment instability or intermittent service issues.`);
+                }
+                
+                // HTTP errors
+                const httpErrors = transactions.filter(t => t.httpCode && t.httpCode >= 400);
+                if (httpErrors.length > 0) {
+                    const errorCodes = [...new Set(httpErrors.map(t => t.httpCode))].join(', ');
+                    suggestions.push(`HTTP error codes detected: ${errorCodes}. Review API endpoints and service health.`);
+                }
+                
+                // DB validation issues
+                const dbIssues = transactions.filter(t => 
+                    t.errors.some(e => e.message?.toLowerCase().includes('database') || e.message?.toLowerCase().includes('sql'))
+                );
+                if (dbIssues.length > 0) {
+                    suggestions.push(`Database-related issues found in ${dbIssues.length} transactions. Verify database connectivity and query performance.`);
+                }
+                
+                return suggestions;
+            },
+            
+            generateRecommendations(results) {
+                const recommendations = [];
+                const { summary, transactions } = results;
+                
+                if (summary.successRate < 95) {
+                    recommendations.push('Investigate and resolve failing test cases before the next release cycle.');
+                }
+                
+                if (summary.totalRetries > summary.total * 0.1) {
+                    recommendations.push('High retry rate suggests environment instability. Consider implementing more robust error handling.');
+                }
+                
+                if (summary.avgExecutionTime > 5000) {
+                    recommendations.push('Average execution time exceeds 5 seconds. Optimize slow transactions to improve overall test efficiency.');
+                }
+                
+                const slowestTransactions = [...transactions]
+                    .sort((a, b) => b.executionTime - a.executionTime)
+                    .slice(0, 3);
+                
+                if (slowestTransactions.length > 0 && slowestTransactions[0].executionTime > 10000) {
+                    recommendations.push(`Focus optimization efforts on the slowest transactions: ${slowestTransactions.map(t => t.technicalName).join(', ')}.`);
+                }
+                
+                return recommendations;
+            },
+            
+            formatTime(ms) {
+                if (!ms || ms === 0) return '0ms';
+                if (ms < 1000) return `${ms.toFixed(0)}ms`;
+                if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+                return `${(ms / 60000).toFixed(2)}min`;
+            },
+        };
+        
+        // ============================================
+        // REPORT GENERATOR
+        // ============================================
+        
+        const ReportGenerator = {
+            async generatePDF(results, summaries) {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const margin = 20;
+                let y = margin;
+                
+                // Colors
+                const primaryColor = [14, 165, 233];
+                const successColor = [16, 185, 129];
+                const dangerColor = [239, 68, 68];
+                const warningColor = [245, 158, 11];
+                const textColor = [30, 41, 59];
+                const lightGray = [241, 245, 249];
+                
+                // Helper functions
+                const addPage = () => {
+                    doc.addPage();
+                    y = margin;
+                };
+                
+                const checkPageBreak = (height) => {
+                    if (y + height > pageHeight - margin) {
+                        addPage();
+                        return true;
+                    }
+                    return false;
+                };
+                
+                // Cover Page
+                doc.setFillColor(...primaryColor);
+                doc.rect(0, 0, pageWidth, 80, 'F');
+                
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(28);
+                doc.setFont('helvetica', 'bold');
+                doc.text('QA Execution Report', pageWidth / 2, 35, { align: 'center' });
+                
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'normal');
+                doc.text(results.fileName || 'Test Execution Results', pageWidth / 2, 50, { align: 'center' });
+                
+                doc.setFontSize(10);
+                doc.text(new Date().toLocaleString(), pageWidth / 2, 65, { align: 'center' });
+                
+                y = 100;
+                
+                // Summary Cards
+                doc.setTextColor(...textColor);
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Execution Summary', margin, y);
+                y += 15;
+                
+                const cardWidth = (pageWidth - margin * 2 - 15) / 4;
+                const cardHeight = 35;
+                const cards = [
+                    { label: 'Total Tests', value: results.summary.total, color: primaryColor },
+                    { label: 'Passed', value: results.summary.passed, color: successColor },
+                    { label: 'Failed', value: results.summary.failed, color: dangerColor },
+                    { label: 'Success Rate', value: `${results.summary.successRate.toFixed(1)}%`, color: successColor },
+                ];
+                
+                cards.forEach((card, index) => {
+                    const x = margin + index * (cardWidth + 5);
+                    
+                    doc.setFillColor(...lightGray);
+                    doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'F');
+                    
+                    doc.setFillColor(...card.color);
+                    doc.rect(x, y, cardWidth, 4, 'F');
+                    
+                    doc.setTextColor(...textColor);
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(card.label, x + cardWidth / 2, y + 15, { align: 'center' });
+                    
+                    doc.setFontSize(16);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text(String(card.value), x + cardWidth / 2, y + 28, { align: 'center' });
+                });
+                
+                y += cardHeight + 20;
+                
+                // AI Summaries
+                if (summaries && summaries.length > 0) {
+                    doc.setFontSize(16);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(...textColor);
+                    doc.text('Analysis & Insights', margin, y);
+                    y += 10;
+                    
+                    summaries.forEach(summary => {
+                        checkPageBreak(40);
+                        
+                        doc.setFillColor(...lightGray);
+                        doc.roundedRect(margin, y, pageWidth - margin * 2, 5, 2, 2, 'F');
+                        
+                        y += 10;
+                        doc.setFontSize(12);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(...primaryColor);
+                        doc.text(summary.title, margin, y);
+                        y += 8;
+                        
+                        doc.setFontSize(10);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(...textColor);
+                        
+                        const lines = doc.splitTextToSize(summary.content, pageWidth - margin * 2);
+                        lines.forEach(line => {
+                            checkPageBreak(6);
+                            doc.text(line, margin, y);
+                            y += 6;
+                        });
+                        
+                        y += 10;
+                    });
+                }
+                
+                // Transaction Table
+                addPage();
+                
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(...textColor);
+                doc.text('Transaction Details', margin, y);
+                y += 10;
+                
+                const tableData = results.transactions.slice(0, 50).map(t => [
+                    t.technicalName?.substring(0, 30) || 'N/A',
+                    t.status || 'N/A',
+                    t.passed === true ? 'PASS' : t.passed === false ? 'FAIL' : 'N/A',
+                    `${t.executionTime?.toFixed(0) || 0}ms`,
+                    t.retryCount || 0,
+                ]);
+                
+                doc.autoTable({
+                    startY: y,
+                    head: [['Transaction', 'Status', 'Result', 'Duration', 'Retries']],
+                    body: tableData,
+                    theme: 'striped',
+                    headStyles: {
+                        fillColor: primaryColor,
+                        textColor: [255, 255, 255],
+                        fontStyle: 'bold',
+                    },
+                    styles: {
+                        fontSize: 8,
+                        cellPadding: 3,
+                    },
+                    columnStyles: {
+                        0: { cellWidth: 60 },
+                        1: { cellWidth: 30 },
+                        2: { cellWidth: 20 },
+                        3: { cellWidth: 25 },
+                        4: { cellWidth: 20 },
+                    },
+                    didParseCell: function(data) {
+                        if (data.column.index === 2 && data.section === 'body') {
+                            if (data.cell.raw === 'PASS') {
+                                data.cell.styles.textColor = successColor;
+                            } else if (data.cell.raw === 'FAIL') {
+                                data.cell.styles.textColor = dangerColor;
+                            }
+                        }
+                    },
+                });
+                
+                // Failed Transactions Details
+                const failedTransactions = results.transactions.filter(t => t.passed === false);
+                if (failedTransactions.length > 0) {
+                    addPage();
+                    
+                    doc.setFontSize(16);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(...dangerColor);
+                    doc.text('Failed Transactions Analysis', margin, y);
+                    y += 15;
+                    
+                    failedTransactions.slice(0, 20).forEach((t, index) => {
+                        checkPageBreak(40);
+                        
+                        doc.setFillColor(254, 226, 226);
+                        doc.roundedRect(margin, y, pageWidth - margin * 2, 30, 3, 3, 'F');
+                        
+                        doc.setFontSize(11);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(...dangerColor);
+                        doc.text(`${index + 1}. ${t.technicalName?.substring(0, 50) || 'Unknown'}`, margin + 5, y + 10);
+                        
+                        doc.setFontSize(9);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(...textColor);
+                        
+                        const errorMsg = t.errors[0]?.message?.substring(0, 100) || 'No error details available';
+                        doc.text(`Error: ${errorMsg}`, margin + 5, y + 20);
+                        
+                        y += 35;
+                    });
+                }
+                
+                // Footer on all pages
+                const totalPages = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(
+                        `Page ${i} of ${totalPages} | Generated by QA Execution Portal | ${new Date().toLocaleDateString()}`,
+                        pageWidth / 2,
+                        pageHeight - 10,
+                        { align: 'center' }
+                    );
+                }
+                
+                return doc;
+            },
+            
+            generateExcel(results, summaries) {
+                const wb = XLSX.utils.book_new();
+                
+                // Summary Sheet
+                const summaryData = [
+                    ['QA Execution Report Summary'],
+                    [''],
+                    ['Generated', new Date().toLocaleString()],
+                    ['File', results.fileName || 'N/A'],
+                    [''],
+                    ['Metric', 'Value'],
+                    ['Total Tests', results.summary.total],
+                    ['Passed', results.summary.passed],
+                    ['Failed', results.summary.failed],
+                    ['Success Rate', `${results.summary.successRate.toFixed(2)}%`],
+                    ['Average Execution Time', `${results.summary.avgExecutionTime.toFixed(2)}ms`],
+                    ['Total Retries', results.summary.totalRetries],
+                    ['Start Time', results.summary.startTime?.toLocaleString() || 'N/A'],
+                    ['End Time', results.summary.endTime?.toLocaleString() || 'N/A'],
+                ];
+                
+                const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+                
+                // All Transactions Sheet
+                const transactionData = [
+                    ['ID', 'Technical Name', 'Status', 'Result', 'Execution Time (ms)', 'Retry Count', 'HTTP Code', 'Timestamp', 'Errors'],
+                    ...results.transactions.map(t => [
+                        t.id,
+                        t.technicalName,
+                        t.status,
+                        t.passed === true ? 'PASS' : t.passed === false ? 'FAIL' : 'N/A',
+                        t.executionTime?.toFixed(2) || 0,
+                        t.retryCount || 0,
+                        t.httpCode || 'N/A',
+                        t.timestamp?.toLocaleString() || 'N/A',
+                        t.errors.map(e => e.message).join('; ').substring(0, 200),
+                    ]),
+                ];
+                
+                const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
+                XLSX.utils.book_append_sheet(wb, transactionSheet, 'All Transactions');
+                
+                // Failed Transactions Sheet
+                const failedData = [
+                    ['ID', 'Technical Name', 'Error Type', 'Error Message', 'Execution Time (ms)', 'Retry Count'],
+                    ...results.transactions
+                        .filter(t => t.passed === false)
+                        .map(t => [
+                            t.id,
+                            t.technicalName,
+                            t.errors[0]?.type || 'Unknown',
+                            t.errors[0]?.message?.substring(0, 500) || 'No details',
+                            t.executionTime?.toFixed(2) || 0,
+                            t.retryCount || 0,
+                        ]),
+                ];
+                
+                const failedSheet = XLSX.utils.aoa_to_sheet(failedData);
+                XLSX.utils.book_append_sheet(wb, failedSheet, 'Failed Transactions');
+                
+                // Retry Analysis Sheet
+                const retryData = [
+                    ['ID', 'Technical Name', 'Retry Count', 'Final Status', 'Execution Time (ms)'],
+                    ...results.transactions
+                        .filter(t => t.retryCount > 0)
+                        .sort((a, b) => b.retryCount - a.retryCount)
+                        .map(t => [
+                            t.id,
+                            t.technicalName,
+                            t.retryCount,
+                            t.status,
+                            t.executionTime?.toFixed(2) || 0,
+                        ]),
+                ];
+                
+                const retrySheet = XLSX.utils.aoa_to_sheet(retryData);
+                XLSX.utils.book_append_sheet(wb, retrySheet, 'Retry Analysis');
+                
+                // Performance Analysis Sheet
+                const perfData = [
+                    ['ID', 'Technical Name', 'Execution Time (ms)', 'Status', 'Performance Rating'],
+                    ...results.transactions
+                        .sort((a, b) => b.executionTime - a.executionTime)
+                        .map(t => {
+                            const avgTime = results.summary.avgExecutionTime;
+                            let rating = 'Normal';
+                            if (t.executionTime > avgTime * 2) rating = 'Slow';
+                            if (t.executionTime > avgTime * 3) rating = 'Very Slow';
+                            if (t.executionTime < avgTime * 0.5) rating = 'Fast';
+                            
+                            return [
+                                t.id,
+                                t.technicalName,
+                                t.executionTime?.toFixed(2) || 0,
+                                t.status,
+                                rating,
+                            ];
+                        }),
+                ];
+                
+                const perfSheet = XLSX.utils.aoa_to_sheet(perfData);
+                XLSX.utils.book_append_sheet(wb, perfSheet, 'Performance Analysis');
+                
+                // AI Insights Sheet
+                if (summaries && summaries.length > 0) {
+                    const insightsData = [
+                        ['AI-Generated Insights'],
+                        [''],
+                        ...summaries.map(s => [s.title, s.content]),
+                    ];
+                    
+                    const insightsSheet = XLSX.utils.aoa_to_sheet(insightsData);
+                    XLSX.utils.book_append_sheet(wb, insightsSheet, 'AI Insights');
+                }
+                
+                return wb;
+            },
+        };
+        
+        // ============================================
+        // UI COMPONENTS
+        // ============================================
+        
+        // Button Component
+        const Button = ({ children, variant = 'primary', size = 'md', className = '', disabled = false, onClick, ...props }) => {
+            const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
+            
+            const variants = {
+                primary: 'bg-primary-600 hover:bg-primary-700 text-white focus:ring-primary-500 disabled:bg-primary-300',
+                secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-700 focus:ring-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200',
+                success: 'bg-green-600 hover:bg-green-700 text-white focus:ring-green-500',
+                danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500',
+                ghost: 'bg-transparent hover:bg-gray-100 text-gray-700 dark:hover:bg-gray-800 dark:text-gray-200',
+                outline: 'border-2 border-primary-600 text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20',
+            };
+            
+            const sizes = {
+                sm: 'px-3 py-1.5 text-sm gap-1.5',
+                md: 'px-4 py-2 text-sm gap-2',
+                lg: 'px-6 py-3 text-base gap-2',
+            };
+            
+            return (
+                <button
+                    className={`${baseClasses} ${variants[variant]} ${sizes[size]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={disabled}
+                    onClick={onClick}
+                    {...props}
+                >
+                    {children}
+                </button>
+            );
+        };
+        
+        // Card Component
+        const Card = ({ children, className = '', hover = false, ...props }) => {
+            return (
+                <div
+                    className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 ${hover ? 'card-hover' : ''} ${className}`}
+                    {...props}
+                >
+                    {children}
+                </div>
+            );
+        };
+        
+        // Badge Component
+        const Badge = ({ children, variant = 'default', className = '' }) => {
+            const variants = {
+                default: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+                success: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+                danger: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+                warning: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+                info: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+            };
+            
+            return (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variants[variant]} ${className}`}>
+                    {children}
+                </span>
+            );
+        };
+        
+        // Progress Bar Component
+        const ProgressBar = ({ value, max = 100, color = 'primary', showLabel = false, className = '' }) => {
+            const percentage = Math.min(100, Math.max(0, (value / max) * 100));
+            
+            const colors = {
+                primary: 'bg-primary-500',
+                success: 'bg-green-500',
+                danger: 'bg-red-500',
+                warning: 'bg-yellow-500',
+            };
+            
+            return (
+                <div className={`w-full ${className}`}>
+                    <div className="progress-bar">
+                        <div
+                            className={`progress-fill ${colors[color]}`}
+                            style={{ width: `${percentage}%` }}
+                        />
+                    </div>
+                    {showLabel && (
+                        <div className="text-xs text-gray-500 mt-1">{percentage.toFixed(1)}%</div>
+                    )}
+                </div>
+            );
+        };
+        
+        // Metric Card Component
+        const MetricCard = ({ title, value, subtitle, icon, trend, type = 'info' }) => {
+            return (
+                <Card className={`metric-card ${type} p-6`} hover>
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
+                            <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{value}</p>
+                            {subtitle && (
+                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+                            )}
+                            {trend && (
+                                <div className={`mt-2 flex items-center text-sm ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
+                                </div>
+                            )}
+                        </div>
+                        {icon && (
+                            <div className={`p-3 rounded-lg ${
+                                type === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30' :
+                                type === 'danger' ? 'bg-red-100 text-red-600 dark:bg-red-900/30' :
+                                type === 'warning' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30' :
+                                'bg-primary-100 text-primary-600 dark:bg-primary-900/30'
+                            }`}>
+                                {icon}
+                            </div>
+                        )}
+                    </div>
+                </Card>
+            );
+        };
+        
+        // Tab Component
+        const Tabs = ({ tabs, activeTab, onChange }) => {
+            return (
+                <div className="border-b border-gray-200 dark:border-gray-700">
+                    <nav className="flex space-x-8">
+                        {tabs.map((tab) => (
+                            <button
+                                key={tab.id}
+                                onClick={() => onChange(tab.id)}
+                                className={`py-4 px-1 text-sm font-medium border-b-2 transition-colors ${
+                                    activeTab === tab.id
+                                        ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                            >
+                                <div className="flex items-center gap-2">
+                                    {tab.icon}
+                                    {tab.label}
+                                    {tab.count !== undefined && (
+                                        <Badge variant={tab.badgeVariant || 'default'}>{tab.count}</Badge>
+                                    )}
+                                </div>
+                            </button>
+                        ))}
+                    </nav>
+                </div>
+            );
+        };
+        
+        // Modal Component
+        const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
+            if (!isOpen) return null;
+            
+            const sizes = {
+                sm: 'max-w-md',
+                md: 'max-w-lg',
+                lg: 'max-w-2xl',
+                xl: 'max-w-4xl',
+                full: 'max-w-6xl',
+            };
+            
+            return (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+                        <div className="modal-overlay fixed inset-0" onClick={onClose} />
+                        
+                        <div className={`relative inline-block w-full ${sizes[size]} p-6 my-8 text-left align-middle bg-white dark:bg-gray-800 rounded-2xl shadow-xl transform transition-all animate-fade-in`}>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+                                <button
+                                    onClick={onClose}
+                                    className="p-2 text-gray-400 hover:text-gray-500 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                    <Icons.X />
+                                </button>
+                            </div>
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Search Input Component
+        const SearchInput = ({ value, onChange, placeholder = 'Search...' }) => {
+            return (
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <Icons.Search />
+                    </div>
+                    <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        placeholder={placeholder}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                </div>
+            );
+        };
+        
+        // Select Component
+        const Select = ({ value, onChange, options, placeholder = 'Select...' }) => {
+            return (
+                <select
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                    <option value="">{placeholder}</option>
+                    {options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                            {option.label}
+                        </option>
+                    ))}
+                </select>
+            );
+        };
+        
+        // ============================================
+        // CHART COMPONENTS
+        // ============================================
+        
+        const DonutChart = ({ data, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            
+            useEffect(() => {
+                if (!canvasRef.current || !data) return;
+                
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+                
+                const ctx = canvasRef.current.getContext('2d');
+                
+                chartRef.current = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.values,
+                            backgroundColor: data.colors || ['#10b981', '#ef4444', '#f59e0b', '#6b7280'],
+                            borderWidth: 0,
+                            hoverOffset: 4,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    font: {
+                                        size: 12,
+                                    },
+                                },
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                cornerRadius: 8,
+                            },
+                        },
+                    },
+                });
+                
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+            
+            return (
+                <Card className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
+                    <div className="chart-container">
+                        <canvas ref={canvasRef} />
+                    </div>
+                </Card>
+            );
+        };
+        
+        const BarChart = ({ data, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            
+            useEffect(() => {
+                if (!canvasRef.current || !data) return;
+                
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+                
+                const ctx = canvasRef.current.getContext('2d');
+                
+                chartRef.current = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: data.label || 'Value',
+                            data: data.values,
+                            backgroundColor: data.color || 'rgba(14, 165, 233, 0.8)',
+                            borderRadius: 6,
+                            borderSkipped: false,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                cornerRadius: 8,
+                            },
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false,
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11,
+                                    },
+                                },
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)',
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+                
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+            
+            return (
+                <Card className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
+                    <div className="chart-container">
+                        <canvas ref={canvasRef} />
+                    </div>
+                </Card>
+            );
+        };
+        
+        const LineChart = ({ data, title }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+            
+            useEffect(() => {
+                if (!canvasRef.current || !data) return;
+                
+                if (chartRef.current) {
+                    chartRef.current.destroy();
+                }
+                
+                const ctx = canvasRef.current.getContext('2d');
+                
+                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(14, 165, 233, 0.3)');
+                gradient.addColorStop(1, 'rgba(14, 165, 233, 0)');
+                
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: data.label || 'Value',
+                            data: data.values,
+                            borderColor: '#0ea5e9',
+                            backgroundColor: gradient,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#0ea5e9',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                cornerRadius: 8,
+                            },
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false,
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11,
+                                    },
+                                },
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)',
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+                
+                return () => {
+                    if (chartRef.current) {
+                        chartRef.current.destroy();
+                    }
+                };
+            }, [data]);
+            
+            return (
+                <Card className="p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h3>
+                    <div className="chart-container">
+                        <canvas ref={canvasRef} />
+                    </div>
+                </Card>
+            );
+        };
+        
+        // ============================================
+        // MAIN COMPONENTS
+        // ============================================
+        
+        // Header Component
+        const Header = ({ darkMode, setDarkMode, sidebarOpen, setSidebarOpen }) => {
+            return (
+                <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between px-6 py-4">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setSidebarOpen(!sidebarOpen)}
+                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
+                            >
+                                <Icons.Menu />
+                            </button>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center">
+                                    <Icons.Zap />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">QA Portal</h1>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Execution Reporting</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setDarkMode(!darkMode)}
+                                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+                            >
+                                {darkMode ? <Icons.Sun /> : <Icons.Moon />}
+                            </button>
+                        </div>
+                    </div>
+                </header>
+            );
+        };
+        
+        // Sidebar Component
+        const Sidebar = ({ activeView, setActiveView, sidebarOpen, hasData }) => {
+            const menuItems = [
+                { id: 'upload', label: 'Upload Center', icon: <Icons.Upload /> },
+                { id: 'dashboard', label: 'Dashboard', icon: <Icons.Dashboard />, requiresData: true },
+                { id: 'transactions', label: 'Transactions', icon: <Icons.Report />, requiresData: true },
+                { id: 'timeline', label: 'Timeline', icon: <Icons.Timeline />, requiresData: true },
+                { id: 'insights', label: 'AI Insights', icon: <Icons.AI />, requiresData: true },
+                { id: 'reports', label: 'Reports', icon: <Icons.Download />, requiresData: true },
+                { id: 'history', label: 'History', icon: <Icons.History /> },
+            ];
+            
+            return (
+                <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                    <div className="flex flex-col h-full pt-20">
+                        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto scrollbar-thin">
+                            {menuItems.map((item) => {
+                                const disabled = item.requiresData && !hasData;
+                                
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => !disabled && setActiveView(item.id)}
+                                        disabled={disabled}
+                                        className={`sidebar-item w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                                            activeView === item.id
+                                                ? 'active bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                                : disabled
+                                                    ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                                        }`}
+                                    >
+                                        {item.icon}
+                                        {item.label}
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                        
+                        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="glass rounded-lg p-4">
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Version 1.0.0</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">AI-Powered QA Analytics</p>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            );
+        };
+        
+        // Upload Center Component
+        const UploadCenter = ({ onFilesProcessed }) => {
+            const [isDragging, setIsDragging] = useState(false);
+            const [files, setFiles] = useState([]);
+            const [processing, setProcessing] = useState(false);
+            const [progress, setProgress] = useState(0);
+            const fileInputRef = useRef(null);
+            
+            const supportedTypes = ['.log', '.txt', '.trx', '.xml', '.jtl', '.json', '.zip'];
+            
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                setIsDragging(true);
+            };
+            
+            const handleDragLeave = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+            };
+            
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                const droppedFiles = Array.from(e.dataTransfer.files);
+                handleFiles(droppedFiles);
+            };
+            
+            const handleFileSelect = (e) => {
+                const selectedFiles = Array.from(e.target.files);
+                handleFiles(selectedFiles);
+            };
+            
+            const handleFiles = async (newFiles) => {
+                const validFiles = [];
+                
+                for (const file of newFiles) {
+                    const ext = '.' + file.name.split('.').pop().toLowerCase();
+                    
+                    if (ext === '.zip') {
+                        // Extract ZIP files
+                        try {
+                            const zip = new JSZip();
+                            const contents = await zip.loadAsync(file);
+                            
+                            for (const [filename, zipEntry] of Object.entries(contents.files)) {
+                                if (!zipEntry.dir) {
+                                    const fileExt = '.' + filename.split('.').pop().toLowerCase();
+                                    if (supportedTypes.includes(fileExt) && fileExt !== '.zip') {
+                                        const content = await zipEntry.async('string');
+                                        validFiles.push({
+                                            name: filename,
+                                            content,
+                                            size: content.length,
+                                            type: fileExt,
+                                            status: 'pending',
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error extracting ZIP:', error);
+                        }
+                    } else if (supportedTypes.includes(ext)) {
+                        const content = await file.text();
+                        validFiles.push({
+                            name: file.name,
+                            content,
+                            size: file.size,
+                            type: ext,
+                            status: 'pending',
+                        });
+                    }
+                }
+                
+                setFiles(prev => [...prev, ...validFiles]);
+            };
+            
+            const processFiles = async () => {
+                if (files.length === 0) return;
+                
+                setProcessing(true);
+                setProgress(0);
+                
+                const results = [];
+                
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    
+                    // Update file status
+                    setFiles(prev => prev.map((f, idx) => 
+                        idx === i ? { ...f, status: 'processing' } : f
+                    ));
+                    
+                    // Parse the file
+                    const result = LogParser.parse(file.content, file.name);
+                    results.push(result);
+                    
+                    // Update progress
+                    setProgress(((i + 1) / files.length) * 100);
+                    
+                    // Update file status
+                    setFiles(prev => prev.map((f, idx) => 
+                        idx === i ? { ...f, status: 'completed', result } : f
+                    ));
+                    
+                    // Small delay for visual feedback
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                
+                // Merge results
+                const mergedResult = {
+                    fileName: files.length === 1 ? files[0].name : `${files.length} files`,
+                    fileType: 'merged',
+                    transactions: results.flatMap(r => r.transactions),
+                    summary: {
+                        total: 0,
+                        passed: 0,
+                        failed: 0,
+                        warnings: 0,
+                        avgExecutionTime: 0,
+                        totalRetries: 0,
+                        startTime: null,
+                        endTime: null,
+                    },
+                    errors: results.flatMap(r => r.errors),
+                    warnings: results.flatMap(r => r.warnings),
+                    metadata: {
+                        fileCount: files.length,
+                        files: files.map(f => f.name),
+                    },
+                };
+                
+                // Recalculate summary
+                LogParser.calculateSummary(mergedResult);
+                
+                // Generate AI summaries
+                const summaries = AISummaryGenerator.generate(mergedResult);
+                
+                setProcessing(false);
+                onFilesProcessed(mergedResult, summaries);
+            };
+            
+            const removeFile = (index) => {
+                setFiles(prev => prev.filter((_, i) => i !== index));
+            };
+            
+            const clearFiles = () => {
+                setFiles([]);
+                setProgress(0);
+            };
+            
+            const formatFileSize = (bytes) => {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            };
+            
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Center</h2>
+                            <p className="text-gray-500 dark:text-gray-400 mt-1">Upload your test execution logs and reports</p>
+                        </div>
+                    </div>
+                    
+                    {/* Upload Zone */}
+                    <Card className="p-8">
+                        <div
+                            className={`upload-zone rounded-xl p-12 text-center ${isDragging ? 'dragover' : ''}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                        >
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center text-primary-600">
+                                <Icons.Upload />
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                Drop files here or click to upload
+                            </h3>
+                            <p className="text-gray-500 dark:text-gray-400 mb-4">
+                                Supports: .log, .txt, .trx, .xml, .jtl, .json, .zip
+                            </p>
+                            <Button onClick={() => fileInputRef.current?.click()}>
+                                Select Files
+                            </Button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                multiple
+                                accept={supportedTypes.join(',')}
+                                onChange={handleFileSelect}
+                                className="hidden"
+                            />
+                        </div>
+                        
+                        {/* Supported File Types */}
+                        <div className="mt-6 flex flex-wrap gap-2 justify-center">
+                            {supportedTypes.map((type) => (
+                                <Badge key={type} variant="info">{type}</Badge>
+                            ))}
+                        </div>
+                    </Card>
+                    
+                    {/* File List */}
+                    {files.length > 0 && (
+                        <Card className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Selected Files ({files.length})
+                                </h3>
+                                <div className="flex gap-2">
+                                    <Button variant="ghost" onClick={clearFiles}>
+                                        Clear All
+                                    </Button>
+                                    <Button onClick={processFiles} disabled={processing}>
+                                        {processing ? (
+                                            <>
+                                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                </svg>
+                                                Processing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Icons.Zap />
+                                                Process Files
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
+                            
+                            {processing && (
+                                <div className="mb-4">
+                                    <ProgressBar value={progress} color="primary" showLabel />
+                                </div>
+                            )}
+                            
+                            <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+                                {files.map((file, index) => (
+                                    <div
+                                        key={index}
+                                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-white dark:bg-gray-600 rounded-lg">
+                                                <Icons.File />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {file.name}
+                                                </p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {formatFileSize(file.size)} • {file.type}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {file.status === 'pending' && (
+                                                <Badge>Pending</Badge>
+                                            )}
+                                            {file.status === 'processing' && (
+                                                <Badge variant="warning">Processing</Badge>
+                                            )}
+                                            {file.status === 'completed' && (
+                                                <Badge variant="success">Completed</Badge>
+                                            )}
+                                            <button
+                                                onClick={() => removeFile(index)}
+                                                className="p-1 text-gray-400 hover:text-red-500 rounded"
+                                                disabled={processing}
+                                            >
+                                                <Icons.X />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    )}
+                    
+                    {/* Sample Data Option */}
+                    <Card className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Try with Sample Data
+                                </h3>
+                                <p className="text-gray-500 dark:text-gray-400 mt-1">
+                                    Load sample execution logs to explore the portal features
+                                </p>
+                            </div>
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    // Generate sample data
+                                    const sampleContent = generateSampleLogContent();
+                                    handleFiles([{
+                                        name: 'sample-execution.log',
+                                        text: () => Promise.resolve(sampleContent),
+                                    }]);
+                                }}
+                            >
+                                Load Sample Data
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+        
+        // Generate sample log content
+        const generateSampleLogContent = () => {
+            const transactions = [
+                { name: 'MeteredVolumes', status: 'PROCESSED', passed: true, time: 1234, retries: 0 },
+                { name: 'AccountValidation', status: 'PROCESSED', passed: true, time: 2567, retries: 1 },
+                { name: 'PaymentProcessing', status: 'FAILED', passed: false, time: 5432, retries: 3 },
+                { name: 'InvoiceGeneration', status: 'PROCESSED', passed: true, time: 1876, retries: 0 },
+                { name: 'CustomerNotification', status: 'PROCESSED', passed: true, time: 987, retries: 0 },
+                { name: 'DataSynchronization', status: 'FAILED', passed: false, time: 8765, retries: 2 },
+                { name: 'ReportGeneration', status: 'PROCESSED', passed: true, time: 3456, retries: 0 },
+                { name: 'AuditLogging', status: 'PROCESSED', passed: true, time: 654, retries: 0 },
+                { name: 'CacheRefresh', status: 'PROCESSED', passed: true, time: 432, retries: 0 },
+                { name: 'SecurityValidation', status: 'PROCESSED', passed: true, time: 1234, retries: 0 },
+                { name: 'APIIntegration', status: 'PROCESSED', passed: true, time: 2345, retries: 1 },
+                { name: 'DatabaseBackup', status: 'PROCESSED', passed: true, time: 4567, retries: 0 },
+                { name: 'EmailService', status: 'FAILED', passed: false, time: 6789, retries: 3 },
+                { name: 'FileUpload', status: 'PROCESSED', passed: true, time: 1567, retries: 0 },
+                { name: 'UserAuthentication', status: 'PROCESSED', passed: true, time: 876, retries: 0 },
+            ];
+            
+            let content = '=== Azure DevOps Pipeline Execution Log ===\n';
+            content += `Execution Started: ${new Date().toISOString()}\n`;
+            content += 'Pipeline: Regression-Suite-Main\n';
+            content += 'Agent: Azure-Agent-Pool-01\n\n';
+            
+            transactions.forEach((txn, index) => {
+                const timestamp = new Date(Date.now() - (transactions.length - index) * 60000).toISOString();
+                content += `[${timestamp}] Technical Name : ${txn.name}\n`;
+                content += `[${timestamp}] Transaction Id : TXN-${String(index + 1).padStart(4, '0')}\n`;
+                content += `[${timestamp}] Context Id : CTX-${Math.random().toString(36).substring(7)}\n`;
+                content += `[${timestamp}] Status : ${txn.status}\n`;
+                content += `[${timestamp}] Transaction In ${txn.passed ? 'Passed' : 'Failed'}\n`;
+                content += `[${timestamp}] Total retry count : ${txn.retries}\n`;
+                content += `[${timestamp}] Execution Time : ${txn.time}ms\n`;
+                
+                if (!txn.passed) {
+                    content += `[${timestamp}] Error: Transaction failed after ${txn.retries} retries\n`;
+                    content += `[${timestamp}] Exception: ServiceUnavailableException - The service is temporarily unavailable\n`;
+                }
+                
+                content += '\n';
+            });
+            
+            content += `\n=== Execution Completed: ${new Date().toISOString()} ===\n`;
+            
+            return content;
+        };
+        
+        // Dashboard Component
+        const Dashboard = ({ results, summaries }) => {
+            const { summary, transactions } = results;
+            
+            // Prepare chart data
+            const statusChartData = {
+                labels: ['Passed', 'Failed', 'Skipped'],
+                values: [summary.passed, summary.failed, summary.total - summary.passed - summary.failed],
+                colors: ['#10b981', '#ef4444', '#6b7280'],
+            };
+            
+            // Execution time distribution
+            const timeRanges = ['<1s', '1-3s', '3-5s', '5-10s', '>10s'];
+            const timeDistribution = [0, 0, 0, 0, 0];
+            
+            transactions.forEach(t => {
+                const time = t.executionTime / 1000;
+                if (time < 1) timeDistribution[0]++;
+                else if (time < 3) timeDistribution[1]++;
+                else if (time < 5) timeDistribution[2]++;
+                else if (time < 10) timeDistribution[3]++;
+                else timeDistribution[4]++;
+            });
+            
+            const timeChartData = {
+                labels: timeRanges,
+                values: timeDistribution,
+                label: 'Transactions',
+            };
+            
+            // Retry distribution
+            const retryGroups = ['0 retries', '1 retry', '2 retries', '3+ retries'];
+            const retryDistribution = [0, 0, 0, 0];
+            
+            transactions.forEach(t => {
+                if (t.retryCount === 0) retryDistribution[0]++;
+                else if (t.retryCount === 1) retryDistribution[1]++;
+                else if (t.retryCount === 2) retryDistribution[2]++;
+                else retryDistribution[3]++;
+            });
+            
+            const retryChartData = {
+                labels: retryGroups,
+                values: retryDistribution,
+                label: 'Transactions',
+                color: 'rgba(245, 158, 11, 0.8)',
+            };
+            
+            // Timeline data
+            const hourlyData = {};
+            transactions.forEach(t => {
+                if (t.timestamp) {
+                    const hour = new Date(t.timestamp).getHours();
+                    hourlyData[hour] = (hourlyData[hour] || 0) + 1;
+                }
+            });
+            
+            const timelineChartData = {
+                labels: Object.keys(hourlyData).map(h => `${h}:00`),
+                values: Object.values(hourlyData),
+                label: 'Executions',
+            };
+            
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h2>
+                            <p className="text-gray-500 dark:text-gray-400 mt-1">
+                                {results.fileName} • {new Date().toLocaleDateString()}
+                            </p>
+                        </div>
+                        <Badge variant={summary.successRate >= 95 ? 'success' : summary.successRate >= 80 ? 'warning' : 'danger'}>
+                            {summary.successRate.toFixed(1)}% Success Rate
+                        </Badge>
+                    </div>
+                    
+                    {/* Metric Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <MetricCard
+                            title="Total Executions"
+                            value={summary.total}
+                            subtitle="Test transactions"
+                            icon={<Icons.Report />}
+                            type="info"
+                        />
+                        <MetricCard
+                            title="Passed"
+                            value={summary.passed}
+                            subtitle={`${((summary.passed / summary.total) * 100).toFixed(1)}% of total`}
+                            icon={<Icons.Check />}
+                            type="success"
+                        />
+                        <MetricCard
+                            title="Failed"
+                            value={summary.failed}
+                            subtitle={`${((summary.failed / summary.total) * 100).toFixed(1)}% of total`}
+                            icon={<Icons.X />}
+                            type="danger"
+                        />
+                        <MetricCard
+                            title="Avg Duration"
+                            value={`${(summary.avgExecutionTime / 1000).toFixed(2)}s`}
+                            subtitle="Per transaction"
+                            icon={<Icons.Clock />}
+                            type="warning"
+                        />
+                    </div>
+                    
+                    {/* AI Summary */}
+                    {summaries && summaries.length > 0 && (
+                        <Card className="p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg text-purple-600">
+                                    <Icons.AI />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">AI Executive Summary</h3>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                                {summaries.find(s => s.type === 'executive')?.content}
+                            </p>
+                        </Card>
+                    )}
+                    
+                    {/* Charts */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <DonutChart data={statusChartData} title="Test Results Distribution" />
+                        <BarChart data={timeChartData} title="Execution Time Distribution" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <BarChart data={retryChartData} title="Retry Analysis" />
+                        <LineChart data={timelineChartData} title="Execution Timeline" />
+                    </div>
+                    
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="p-6">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Slowest Transactions</h3>
+                            <div className="space-y-3">
+                                {[...transactions]
+                                    .sort((a, b) => b.executionTime - a.executionTime)
+                                    .slice(0, 5)
+                                    .map((t, i) => (
+                                        <div key={i} className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
+                                                {t.technicalName}
+                                            </span>
+                                            <Badge variant="warning">{(t.executionTime / 1000).toFixed(2)}s</Badge>
+                                        </div>
+                                    ))}
+                            </div>
+                        </Card>
+                        
+                        <Card className="p-6">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Most Retried</h3>
+                            <div className="space-y-3">
+                                {[...transactions]
+                                    .filter(t => t.retryCount > 0)
+                                    .sort((a, b) => b.retryCount - a.retryCount)
+                                    .slice(0, 5)
+                                    .map((t, i) => (
+                                        <div key={i} className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
+                                                {t.technicalName}
+                                            </span>
+                                            <Badge variant="info">{t.retryCount} retries</Badge>
+                                        </div>
+                                    ))}
+                                {transactions.filter(t => t.retryCount > 0).length === 0 && (
+                                    <p className="text-sm text-gray-400">No retries detected</p>
+                                )}
+                            </div>
+                        </Card>
+                        
+                        <Card className="p-6">
+                            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Recent Failures</h3>
+                            <div className="space-y-3">
+                                {transactions
+                                    .filter(t => t.passed === false)
+                                    .slice(0, 5)
+                                    .map((t, i) => (
+                                        <div key={i} className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate max-w-[150px]">
+                                                {t.technicalName}
+                                            </span>
+                                            <Badge variant="danger">Failed</Badge>
+                                        </div>
+                                    ))}
+                                {transactions.filter(t => t.passed === false).length === 0 && (
+                                    <p className="text-sm text-green-500">No failures detected! 🎉</p>
+                                )}
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Transactions View Component
+        const TransactionsView = ({ results }) => {
+            const [search, setSearch] = useState('');
+            const [statusFilter, setStatusFilter] = useState('');
+            const [sortBy, setSortBy] = useState('timestamp');
+            const [sortOrder, setSortOrder] = useState('desc');
+            const [selectedTransaction, setSelectedTransaction] = useState(null);
+            const [currentPage, setCurrentPage] = useState(1);
+            const itemsPerPage = 20;
+            
+            const filteredTransactions = useMemo(() => {
+                return results.transactions
+                    .filter(t => {
+                        const matchesSearch = !search || 
+                            t.technicalName?.toLowerCase().includes(search.toLowerCase()) ||
+                            t.transactionId?.toLowerCase().includes(search.toLowerCase());
+                        
+                        const matchesStatus = !statusFilter ||
+                            (statusFilter === 'passed' && t.passed === true) ||
+                            (statusFilter === 'failed' && t.passed === false) ||
+                            (statusFilter === 'retried' && t.retryCount > 0);
+                        
+                        return matchesSearch && matchesStatus;
+                    })
+                    .sort((a, b) => {
+                        let comparison = 0;
+                        
+                        switch (sortBy) {
+                            case 'name':
+                                comparison = (a.technicalName || '').localeCompare(b.technicalName || '');
+                                break;
+                            case 'status':
+                                comparison = (a.status || '').localeCompare(b.status || '');
+                                break;
+                            case 'time':
+                                comparison = (a.executionTime || 0) - (b.executionTime || 0);
+                                break;
+                            case 'retries':
+                                comparison = (a.retryCount || 0) - (b.retryCount || 0);
+                                break;
+                            default:
+                                comparison = new Date(a.timestamp || 0) - new Date(b.timestamp || 0);
+                        }
+                        
+                        return sortOrder === 'asc' ? comparison : -comparison;
+                    });
+            }, [results.transactions, search, statusFilter, sortBy, sortOrder]);
+            
+            const paginatedTransactions = useMemo(() => {
+                const start = (currentPage - 1) * itemsPerPage;
+                return filteredTransactions.slice(start, start + itemsPerPage);
+            }, [filteredTransactions, currentPage]);
+            
+            const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+            
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Transactions</h2>
+                            <p className="text-gray-500 dark:text-gray-400 mt-1">
+                                {filteredTransactions.length} of {results.transactions.length} transactions
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {/* Filters */}
+                    <Card className="p-4">
+                        <div className="flex flex-wrap gap-4">
+                            <div className="flex-1 min-w-[200px]">
+                                <SearchInput
+                                    value={search}
+                                    onChange={setSearch}
+                                    placeholder="Search transactions..."
+                                />
+                            </div>
+                            <div className="w-48">
+                                <Select
+                                    value={statusFilter}
+                                    onChange={setStatusFilter}
+                                    options={[
+                                        { value: 'passed', label: 'Passed Only' },
+                                        { value: 'failed', label: 'Failed Only' },
+                                        { value: 'retried', label: 'With Retries' },
+                                    ]}
+                                    placeholder="All Status"
+                                />
+                            </div>
+                            <div className="w-48">
+                                <Select
+                                    value={sortBy}
+                                    onChange={setSortBy}
+                                    options={[
+                                        { value: 'timestamp', label: 'Sort by Time' },
+                                        { value: 'name', label: 'Sort by Name' },
+                                        { value: 'status', label: 'Sort by Status' },
+                                        { value: 'time', label: 'Sort by Duration' },
+                                        { value: 'retries', label: 'Sort by Retries' },
+                                    ]}
+                                    placeholder="Sort By"
+                                />
+                            </div>
+                            <Button
+                                variant="ghost"
+                                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                            >
+                                {sortOrder === 'asc' ? '↑' : '↓'}
+                            </Button>
+                        </div>
+                    </Card>
+                    
+                    {/* Transaction Table */}
+                    <Card className="overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Transaction
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Status
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Result
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Duration
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Retries
+                                        </th>
+                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {paginatedTransactions.map((transaction, index) => (
+                                        <tr
+                                            key={transaction.id || index}
+                                            className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                                        >
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                        {transaction.technicalName || 'Unknown'}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {transaction.transactionId || transaction.id}
+                                                    </p>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Badge variant={
+                                                    transaction.status === 'PROCESSED' || transaction.status === 'PASSED' ? 'success' :
+                                                    transaction.status === 'FAILED' || transaction.status === 'ERROR' ? 'danger' :
+                                                    'warning'
+                                                }>
+                                                    {transaction.status}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {transaction.passed === true && (
+                                                    <span className="flex items-center gap-1 text-green-600">
+                                                        <Icons.Check /> Pass
+                                                    </span>
+                                                )}
+                                                {transaction.passed === false && (
+                                                    <span className="flex items-center gap-1 text-red-600">
+                                                        <Icons.X /> Fail
+                                                    </span>
+                                                )}
+                                                {transaction.passed === null && (
+                                                    <span className="text-gray-400">N/A</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                                                {transaction.executionTime ? `${(transaction.executionTime / 1000).toFixed(2)}s` : 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {transaction.retryCount > 0 ? (
+                                                    <Badge variant="warning">{transaction.retryCount}</Badge>
+                                                ) : (
+                                                    <span className="text-gray-400">0</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setSelectedTransaction(transaction)}
+                                                >
+                                                    <Icons.Eye />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                </p>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                    >
+                                        Next
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
+                    
+                    {/* Transaction Detail Modal */}
+                    <Modal
+                        isOpen={!!selectedTransaction}
+                        onClose={() => setSelectedTransaction(null)}
+                        title="Transaction Details"
+                        size="lg"
+                    >
+                        {selectedTransaction && (
+                            <div className="space-y-6">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Technical Name</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">{selectedTransaction.technicalName}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Transaction ID</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">{selectedTransaction.transactionId || selectedTransaction.id}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Status</p>
+                                        <Badge variant={selectedTransaction.passed ? 'success' : 'danger'}>
+                                            {selectedTransaction.status}
+                                        </Badge>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Execution Time</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">
+                                            {selectedTransaction.executionTime ? `${(selectedTransaction.executionTime / 1000).toFixed(3)}s` : 'N/A'}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Retry Count</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">{selectedTransaction.retryCount || 0}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Timestamp</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">
+                                            {selectedTransaction.timestamp ? new Date(selectedTransaction.timestamp).toLocaleString() : 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {selectedTransaction.errors.length > 0 && (
+                                    <div>
+                                        <p className="text-sm font-medium text-red-600 mb-2">Errors</p>
+                                        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 space-y-2">
+                                            {selectedTransaction.errors.map((error, i) => (
+                                                <div key={i} className="text-sm text-red-700 dark:text-red-400">
+                                                    <span className="font-medium">{error.type}:</span> {error.message}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {Object.keys(selectedTransaction.metadata || {}).length > 0 && (
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Metadata</p>
+                                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                                            <pre className="text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
+                                                {JSON.stringify(selectedTransaction.metadata, null, 2)}
+                                            </pre>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </Modal>
+                </div>
+            );
+        };
+        
+        // Timeline View Component
+        const TimelineView = ({ results }) => {
+            const sortedTransactions = useMemo(() => {
+                return [...results.transactions]
+                    .filter(t => t.timestamp)
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            }, [results.transactions]);
+            
+            const formatTime = (date) => {
+                return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            };
+            
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Execution Timeline</h2>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Visual representation of test execution flow
+                        </p>
+                    </div>
+                    
+                    {/* Timeline Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="p-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600">
+                                    <Icons.Clock />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Start Time</p>
+                                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        {results.summary.startTime ? new Date(results.summary.startTime).toLocaleString() : 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg text-red-600">
+                                    <Icons.Clock />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">End Time</p>
+                                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        {results.summary.endTime ? new Date(results.summary.endTime).toLocaleString() : 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                        <Card className="p-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600">
+                                    <Icons.Zap />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Duration</p>
+                                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                        {results.summary.startTime && results.summary.endTime
+                                            ? `${((new Date(results.summary.endTime) - new Date(results.summary.startTime)) / 60000).toFixed(1)} min`
+                                            : 'N/A'}
+                                    </p>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                    
+                    {/* Timeline */}
+                    <Card className="p-6">
+                        <div className="space-y-4 max-h-[600px] overflow-y-auto scrollbar-thin">
+                            {sortedTransactions.map((transaction, index) => (
+                                <div
+                                    key={transaction.id || index}
+                                    className="timeline-item relative pl-8 pb-4"
+                                >
+                                    <div className={`absolute left-0 top-1 w-3 h-3 rounded-full ${
+                                        transaction.passed === true ? 'bg-green-500' :
+                                        transaction.passed === false ? 'bg-red-500' :
+                                        'bg-gray-400'
+                                    }`} />
+                                    
+                                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white">
+                                                    {transaction.technicalName}
+                                                </p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                                    {formatTime(transaction.timestamp)}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant={transaction.passed ? 'success' : 'danger'}>
+                                                    {transaction.status}
+                                                </Badge>
+                                                <span className="text-sm text-gray-500">
+                                                    {transaction.executionTime ? `${(transaction.executionTime / 1000).toFixed(2)}s` : ''}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        {transaction.retryCount > 0 && (
+                                            <div className="mt-2 flex items-center gap-2 text-sm text-yellow-600">
+                                                <Icons.Refresh />
+                                                {transaction.retryCount} retries
+                                            </div>
+                                        )}
+                                        
+                                        {transaction.errors.length > 0 && (
+                                            <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+                                                {transaction.errors[0].message?.substring(0, 100)}...
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            
+                            {sortedTransactions.length === 0 && (
+                                <div className="text-center py-12 text-gray-500">
+                                    No timeline data available
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+        
+        // AI Insights View Component
+        const InsightsView = ({ results, summaries }) => {
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">AI Insights</h2>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Intelligent analysis and recommendations
+                        </p>
+                    </div>
+                    
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {summaries.map((summary, index) => (
+                            <Card key={index} className="p-6" hover>
+                                <div className="flex items-start gap-4">
+                                    <div className={`p-3 rounded-lg ${
+                                        summary.type === 'executive' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                                        summary.type === 'failure' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
+                                        summary.type === 'rca' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                                        summary.type === 'recommendations' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
+                                        'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600'
+                                    }`}>
+                                        <Icons.AI />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                                            {summary.title}
+                                        </h3>
+                                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                                            {summary.content}
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                    
+                    {/* Error Analysis */}
+                    {results.transactions.filter(t => t.errors.length > 0).length > 0 && (
+                        <Card className="p-6">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                Error Distribution Analysis
+                            </h3>
+                            <div className="space-y-4">
+                                {(() => {
+                                    const errorTypes = {};
+                                    results.transactions.forEach(t => {
+                                        t.errors.forEach(e => {
+                                            errorTypes[e.type] = (errorTypes[e.type] || 0) + 1;
+                                        });
+                                    });
+                                    
+                                    return Object.entries(errorTypes)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([type, count]) => (
+                                            <div key={type} className="flex items-center gap-4">
+                                                <div className="w-32 text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                    {type}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <ProgressBar
+                                                        value={count}
+                                                        max={Math.max(...Object.values(errorTypes))}
+                                                        color="danger"
+                                                    />
+                                                </div>
+                                                <div className="w-12 text-right text-sm text-gray-500">
+                                                    {count}
+                                                </div>
+                                            </div>
+                                        ));
+                                })()}
+                            </div>
+                        </Card>
+                    )}
+                    
+                    {/* Performance Insights */}
+                    <Card className="p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                            Performance Insights
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <p className="text-3xl font-bold text-primary-600">
+                                    {(results.summary.avgExecutionTime / 1000).toFixed(2)}s
+                                </p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Average Duration</p>
+                            </div>
+                            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <p className="text-3xl font-bold text-green-600">
+                                    {Math.min(...results.transactions.filter(t => t.executionTime > 0).map(t => t.executionTime / 1000) || [0]).toFixed(2)}s
+                                </p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Fastest Transaction</p>
+                            </div>
+                            <div className="text-center p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                                <p className="text-3xl font-bold text-red-600">
+                                    {Math.max(...results.transactions.map(t => t.executionTime / 1000) || [0]).toFixed(2)}s
+                                </p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Slowest Transaction</p>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+        
+        // Reports View Component
+        const ReportsView = ({ results, summaries }) => {
+            const [generating, setGenerating] = useState(false);
+            
+            const handleGeneratePDF = async () => {
+                setGenerating(true);
+                try {
+                    const doc = await ReportGenerator.generatePDF(results, summaries);
+                    doc.save(`QA-Report-${new Date().toISOString().split('T')[0]}.pdf`);
+                } catch (error) {
+                    console.error('Error generating PDF:', error);
+                }
+                setGenerating(false);
+            };
+            
+            const handleGenerateExcel = () => {
+                setGenerating(true);
+                try {
+                    const wb = ReportGenerator.generateExcel(results, summaries);
+                    XLSX.writeFile(wb, `QA-Report-${new Date().toISOString().split('T')[0]}.xlsx`);
+                } catch (error) {
+                    console.error('Error generating Excel:', error);
+                }
+                setGenerating(false);
+            };
+            
+            const handleExportJSON = () => {
+                const data = {
+                    exportDate: new Date().toISOString(),
+                    results,
+                    summaries,
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `QA-Report-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h2>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Generate and download execution reports
+                        </p>
+                    </div>
+                    
+                    {/* Report Options */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className="p-6" hover>
+                            <div className="text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 2l5 5h-5V4zm-3 9v6H8v-6h2zm4 6v-4h2v4h-2zm-4-8v2H8v-2h2z"/>
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">PDF Report</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                    Professional PDF report with charts and analysis
+                                </p>
+                                <Button onClick={handleGeneratePDF} disabled={generating}>
+                                    <Icons.Download />
+                                    Download PDF
+                                </Button>
+                            </div>
+                        </Card>
+                        
+                        <Card className="p-6" hover>
+                            <div className="text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                                        <path d="M8 13h8v2H8zm0 4h8v2H8zm0-8h3v2H8z"/>
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Excel Report</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                    Multi-sheet Excel with detailed data
+                                </p>
+                                <Button onClick={handleGenerateExcel} disabled={generating} variant="success">
+                                    <Icons.Download />
+                                    Download Excel
+                                </Button>
+                            </div>
+                        </Card>
+                        
+                        <Card className="p-6" hover>
+                            <div className="text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                                    <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm4 18H6V4h7v5h5v11z"/>
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">JSON Export</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                    Raw data export for integration
+                                </p>
+                                <Button onClick={handleExportJSON} variant="secondary">
+                                    <Icons.Download />
+                                    Download JSON
+                                </Button>
+                            </div>
+                        </Card>
+                    </div>
+                    
+                    {/* Report Preview */}
+                    <Card className="p-6">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Report Preview</h3>
+                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-6 space-y-4">
+                            <div className="border-b border-gray-200 dark:border-gray-600 pb-4">
+                                <h4 className="text-xl font-bold text-gray-900 dark:text-white">QA Execution Report</h4>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{results.fileName}</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-4 gap-4 text-center">
+                                <div>
+                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{results.summary.total}</p>
+                                    <p className="text-xs text-gray-500">Total</p>
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-green-600">{results.summary.passed}</p>
+                                    <p className="text-xs text-gray-500">Passed</p>
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-red-600">{results.summary.failed}</p>
+                                    <p className="text-xs text-gray-500">Failed</p>
+                                </div>
+                                <div>
+                                    <p className="text-2xl font-bold text-primary-600">{results.summary.successRate.toFixed(1)}%</p>
+                                    <p className="text-xs text-gray-500">Success Rate</p>
+                                </div>
+                            </div>
+                            
+                            <div className="text-sm text-gray-600 dark:text-gray-300">
+                                {summaries.find(s => s.type === 'executive')?.content}
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            );
+        };
+        
+        // History View Component
+        const HistoryView = ({ sessions, onLoadSession, onDeleteSession }) => {
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">History</h2>
+                        <p className="text-gray-500 dark:text-gray-400 mt-1">
+                            Previously analyzed reports
+                        </p>
+                    </div>
+                    
+                    {sessions.length === 0 ? (
+                        <Card className="p-12 text-center">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400">
+                                <Icons.History />
+                            </div>
+                            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No History Yet</h3>
+                            <p className="text-gray-500 dark:text-gray-400">
+                                Upload and analyze files to see them here
+                            </p>
+                        </Card>
+                    ) : (
+                        <div className="space-y-4">
+                            {sessions.map((session, index) => (
+                                <Card key={index} className="p-4" hover>
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-primary-100 dark:bg-primary-900/30 rounded-lg text-primary-600">
+                                                <Icons.File />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-gray-900 dark:text-white">
+                                                    {session.fileName}
+                                                </p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                                    {new Date(session.timestamp).toLocaleString()} • {session.summary.total} transactions
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <Badge variant={session.summary.successRate >= 95 ? 'success' : session.summary.successRate >= 80 ? 'warning' : 'danger'}>
+                                                {session.summary.successRate.toFixed(1)}%
+                                            </Badge>
+                                            <Button variant="ghost" size="sm" onClick={() => onLoadSession(session)}>
+                                                <Icons.Eye />
+                                            </Button>
+                                            <Button variant="ghost" size="sm" onClick={() => onDeleteSession(index)}>
+                                                <Icons.Trash />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+        
+        // ============================================
+        // MAIN APP COMPONENT
+        // ============================================
+        
+        const App = () => {
+            const [darkMode, setDarkMode] = useState(false);
+            const [sidebarOpen, setSidebarOpen] = useState(true);
+            const [activeView, setActiveView] = useState('upload');
+            const [results, setResults] = useState(null);
+            const [summaries, setSummaries] = useState([]);
+            const [sessions, setSessions] = useState([]);
+            
+            // Load sessions from localStorage
+            useEffect(() => {
+                const savedSessions = localStorage.getItem('qa-portal-sessions');
+                if (savedSessions) {
+                    try {
+                        setSessions(JSON.parse(savedSessions));
+                    } catch (e) {
+                        console.error('Error loading sessions:', e);
+                    }
+                }
+                
+                // Check for dark mode preference
+                if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    setDarkMode(true);
+                }
+            }, []);
+            
+            // Apply dark mode
+            useEffect(() => {
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }, [darkMode]);
+            
+            // Save sessions to localStorage
+            useEffect(() => {
+                localStorage.setItem('qa-portal-sessions', JSON.stringify(sessions));
+            }, [sessions]);
+            
+            const handleFilesProcessed = (newResults, newSummaries) => {
+                setResults(newResults);
+                setSummaries(newSummaries);
+                setActiveView('dashboard');
+                
+                // Save to history
+                const session = {
+                    fileName: newResults.fileName,
+                    timestamp: new Date().toISOString(),
+                    summary: newResults.summary,
+                    results: newResults,
+                    summaries: newSummaries,
+                };
+                
+                setSessions(prev => [session, ...prev.slice(0, 9)]);
+            };
+            
+            const handleLoadSession = (session) => {
+                setResults(session.results);
+                setSummaries(session.summaries);
+                setActiveView('dashboard');
+            };
+            
+            const handleDeleteSession = (index) => {
+                setSessions(prev => prev.filter((_, i) => i !== index));
+            };
+            
+            const hasData = results !== null;
+            
+            const renderView = () => {
+                switch (activeView) {
+                    case 'upload':
+                        return <UploadCenter onFilesProcessed={handleFilesProcessed} />;
+                    case 'dashboard':
+                        return hasData ? <Dashboard results={results} summaries={summaries} /> : null;
+                    case 'transactions':
+                        return hasData ? <TransactionsView results={results} /> : null;
+                    case 'timeline':
+                        return hasData ? <TimelineView results={results} /> : null;
+                    case 'insights':
+                        return hasData ? <InsightsView results={results} summaries={summaries} /> : null;
+                    case 'reports':
+                        return hasData ? <ReportsView results={results} summaries={summaries} /> : null;
+                    case 'history':
+                        return (
+                            <HistoryView
+                                sessions={sessions}
+                                onLoadSession={handleLoadSession}
+                                onDeleteSession={handleDeleteSession}
+                            />
+                        );
+                    default:
+                        return <UploadCenter onFilesProcessed={handleFilesProcessed} />;
+                }
+            };
+            
+            return (
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+                    <Header
+                        darkMode={darkMode}
+                        setDarkMode={setDarkMode}
+                        sidebarOpen={sidebarOpen}
+                        setSidebarOpen={setSidebarOpen}
+                    />
+                    
+                    <Sidebar
+                        activeView={activeView}
+                        setActiveView={setActiveView}
+                        sidebarOpen={sidebarOpen}
+                        hasData={hasData}
+                    />
+                    
+                    <main className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : ''} pt-4 px-6 pb-12`}>
+                        <div className="max-w-7xl mx-auto">
+                            {renderView()}
+                        </div>
+                    </main>
+                    
+                    {/* Mobile sidebar overlay */}
+                    {sidebarOpen && (
+                        <div
+                            className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+                            onClick={() => setSidebarOpen(false)}
+                        />
+                    )}
+                </div>
+            );
+        };
+        
+        // Render the app
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
 
