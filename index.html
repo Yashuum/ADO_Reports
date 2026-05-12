@@ -1563,7 +1563,7 @@ const ReportsView = ({ runs }) => {
 
       // Sheet 1 — Summary
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-        ['QA EXECUTION PORTAL — Management Report'],[''],
+        ['TA Execution — Management Report'],[''],
         ['Generated', new Date().toLocaleString()],
         ['Pipeline Runs', runs.length],[''],
         ['Metric','Value'],
@@ -1660,7 +1660,7 @@ const ReportsView = ({ runs }) => {
       doc.setFillColor(248, 250, 252); doc.rect(0, 0, W, H, 'F');
       doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 12, 'F');
       doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-      doc.text('QA EXECUTION PORTAL  |  DOMAIN-WISE SUMMARY', 10, 8);
+      doc.text('TA Execution |  DOMAIN-WISE SUMMARY', 10, 8);
       doc.setTextColor(15,23,42); doc.setFontSize(15); doc.text('Management Summary Report', 14, 24);
       doc.autoTable({
         startY: 28,
@@ -1690,7 +1690,7 @@ const ReportsView = ({ runs }) => {
       doc.setFillColor(248,250,252); doc.rect(0,0,W,H,'F');
       doc.setFillColor(15,23,42); doc.rect(0,0,W,12,'F');
       doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-      doc.text('QA EXECUTION PORTAL  |  PIPELINE RUN SUMMARY', 10, 8);
+      doc.text('TA Execution |  PIPELINE RUN SUMMARY', 10, 8);
       doc.setTextColor(15,23,42); doc.setFontSize(15); doc.text('Pipeline Run Summary', 14, 24);
       doc.autoTable({
         startY: 28,
@@ -1712,7 +1712,7 @@ const ReportsView = ({ runs }) => {
         doc.setFillColor(248,250,252); doc.rect(0,0,W,H,'F');
         doc.setFillColor(220,38,38); doc.rect(0,0,W,12,'F');
         doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-        doc.text('QA EXECUTION PORTAL  |  FAILED TEST CASES', 10, 8);
+        doc.text('TA Execution | FAILED TEST CASES', 10, 8);
         doc.setTextColor(15,23,42); doc.setFontSize(15); doc.text(`Failed Test Cases (${failedTests.length})`, 14, 24);
         doc.autoTable({
           startY: 28,
@@ -1734,7 +1734,7 @@ const ReportsView = ({ runs }) => {
       for (let i = 1; i <= total; i++) {
         doc.setPage(i);
         doc.setFontSize(7); doc.setTextColor(150,150,150);
-        doc.text(`QA Execution Portal  ·  ${runs.map(r=>r.pipelineName||r.fileName).join(', ').substring(0,60)}  ·  Page ${i} of ${total}  ·  ${new Date().toLocaleDateString()}`,
+        doc.text(`TA Execution - Pipeline Report Generator  ·  ${runs.map(r=>r.pipelineName||r.fileName).join(', ').substring(0,60)}  ·  Page ${i} of ${total}  ·  ${new Date().toLocaleDateString()}`,
           W/2, H-5, { align: 'center' });
       }
 
