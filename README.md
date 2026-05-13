@@ -1,7 +1,6 @@
 # TA ExecutionPipeline Report Generator (Initially, QA Execution Reporting Portal)
 
-> Live at - https://yashuum.github.io/ADO_Reports/
-> A single-file, zero-install QA analytics and execution reporting platform.  
+> Live at - https://yashuum.github.io/ADO_Reports/  
 > Open `index.html` in any modern browser — no server, no build step, no dependencies to install.
 
 ---
