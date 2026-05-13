@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QA Execution Reporting Portal</title>
+  <title>TA Execution - Pipeline Report Generator</title>
 
   <!-- ── External Libraries ── -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -912,6 +912,157 @@ const DomainTable = ({ rows, title = 'Domain-wise Execution Summary', subtitle }
 };
 
 /* ════════════════════════════════════════════════════════════════════════
+   DOMAIN TABLE FULL  (Domain Report page — shows Skipped/Aborted dynamically)
+   Dashboard keeps the simple DomainTable (Exec/Pass/Fail only).
+   This version auto-detects which extra statuses are present and shows
+   those columns only when at least 1 test has that status.
+═══════════════════════════════════════════════════════════════════════════ */
+const DomainTableFull = ({ rows, title = 'Domain-wise Execution Summary', subtitle }) => {
+  // Detect which extra statuses actually exist in this dataset
+  const hasSkipped = rows.some(r => r.MSG.skipped > 0 || r.UI.skipped > 0);
+  const hasAborted = rows.some(r => r.MSG.aborted > 0 || r.UI.aborted > 0);
+
+  // Compute totals dynamically
+  const totals = {
+    MSG: { ex:0, pa:0, fa:0, sk:0, ab:0 },
+    UI:  { ex:0, pa:0, fa:0, sk:0, ab:0 },
+  };
+  rows.forEach(r => {
+    totals.MSG.ex += r.MSG.total;   totals.UI.ex += r.UI.total;
+    totals.MSG.pa += r.MSG.passed;  totals.UI.pa += r.UI.passed;
+    totals.MSG.fa += r.MSG.failed;  totals.UI.fa += r.UI.failed;
+    totals.MSG.sk += r.MSG.skipped; totals.UI.sk += r.UI.skipped;
+    totals.MSG.ab += r.MSG.aborted; totals.UI.ab += r.UI.aborted;
+  });
+
+  const grandEx = totals.MSG.ex + totals.UI.ex;
+  const grandPa = totals.MSG.pa + totals.UI.pa;
+  const grandFa = totals.MSG.fa + totals.UI.fa;
+  const grandSk = totals.MSG.sk + totals.UI.sk;
+  const grandAb = totals.MSG.ab + totals.UI.ab;
+  const rate = grandEx ? (grandPa / grandEx) * 100 : 100;
+
+  // Extra column groups that appear dynamically
+  const extraCols = [
+    hasSkipped && { key: 'skipped', label: 'Skipped',  msgKey: 'skipped', color: 'text-amber-500 dark:text-amber-400',  totalMsg: totals.MSG.sk, totalUI: totals.UI.sk, grand: grandSk },
+    hasAborted && { key: 'aborted', label: 'Aborted',  msgKey: 'aborted', color: 'text-slate-400',                       totalMsg: totals.MSG.ab, totalUI: totals.UI.ab, grand: grandAb },
+  ].filter(Boolean);
+
+  // How many colspan groups total (for grand total row)
+  const numStatusGroups = 2 + extraCols.length; // Passed + Failed + extras
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-base">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-500 mt-0.5 truncate max-w-lg">{subtitle}</p>}
+          {(hasSkipped || hasAborted) && (
+            <div className="flex gap-2 mt-1.5 flex-wrap">
+              {hasSkipped && <span className="pill pill-skip text-[10px]">Skipped column active</span>}
+              {hasAborted && <span className="pill pill-abort text-[10px]">Aborted column active</span>}
+            </div>
+          )}
+        </div>
+        <span className={`pill flex-shrink-0 text-sm px-3 py-1 ${rate >= 95 ? 'pill-pass' : rate >= 80 ? 'pill-skip' : 'pill-fail'}`}>
+          {rate.toFixed(2)}% Overall
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="dtable">
+          <thead>
+            <tr>
+              <th rowSpan={2} className="text-left-col" style={{minWidth:140}}>Domain / Module</th>
+              <th colSpan={2}>Executed</th>
+              <th colSpan={2}>Passed</th>
+              <th colSpan={2}>Failed</th>
+              {extraCols.map(ec => (
+                <th key={ec.key} colSpan={2}>{ec.label}</th>
+              ))}
+              <th rowSpan={2} style={{minWidth:160}}>Pass Rate</th>
+            </tr>
+            <tr>
+              <th>Msg</th><th>UI</th>
+              <th>Msg</th><th>UI</th>
+              <th>Msg</th><th>UI</th>
+              {extraCols.map(ec => (
+                <React.Fragment key={ec.key}>
+                  <th>Msg</th><th>UI</th>
+                </React.Fragment>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.map(r => {
+              const ex = r.MSG.total   + r.UI.total;
+              const pa = r.MSG.passed  + r.UI.passed;
+              const dr = ex ? (pa / ex) * 100 : 100;
+              return (
+                <tr key={r.domain}>
+                  <td className="font-semibold text-left-col">{r.domain}</td>
+                  {/* Executed */}
+                  <td className="text-center">{r.MSG.total}</td>
+                  <td className="text-center">{r.UI.total}</td>
+                  {/* Passed */}
+                  <td className="text-center font-semibold text-emerald-600 dark:text-emerald-400">{r.MSG.passed}</td>
+                  <td className="text-center font-semibold text-emerald-600 dark:text-emerald-400">{r.UI.passed}</td>
+                  {/* Failed */}
+                  <td className="text-center font-semibold text-red-600 dark:text-red-400">{r.MSG.failed}</td>
+                  <td className="text-center font-semibold text-red-600 dark:text-red-400">{r.UI.failed}</td>
+                  {/* Dynamic extra columns */}
+                  {extraCols.map(ec => (
+                    <React.Fragment key={ec.key}>
+                      <td className={`text-center font-semibold ${ec.color} ${r.MSG[ec.msgKey] > 0 ? '' : 'opacity-30'}`}>
+                        {r.MSG[ec.msgKey]}
+                      </td>
+                      <td className={`text-center font-semibold ${ec.color} ${r.UI[ec.msgKey] > 0 ? '' : 'opacity-30'}`}>
+                        {r.UI[ec.msgKey]}
+                      </td>
+                    </React.Fragment>
+                  ))}
+                  {/* Pass rate */}
+                  <td className="px-4"><RateBar rate={dr} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+
+          <tfoot>
+            {/* Sub-Total row */}
+            <tr>
+              <td className="text-left-col">Sub-Total</td>
+              <td className="text-center">{totals.MSG.ex}</td><td className="text-center">{totals.UI.ex}</td>
+              <td className="text-center">{totals.MSG.pa}</td><td className="text-center">{totals.UI.pa}</td>
+              <td className="text-center">{totals.MSG.fa}</td><td className="text-center">{totals.UI.fa}</td>
+              {extraCols.map(ec => (
+                <React.Fragment key={ec.key}>
+                  <td className="text-center">{ec.totalMsg}</td>
+                  <td className="text-center">{ec.totalUI}</td>
+                </React.Fragment>
+              ))}
+              <td className="text-center">{rate.toFixed(2)}%</td>
+            </tr>
+            {/* Grand Total row */}
+            <tr>
+              <td className="text-left-col">Grand Total</td>
+              <td colSpan={2} className="text-center">{grandEx}</td>
+              <td colSpan={2} className="text-center">{grandPa}</td>
+              <td colSpan={2} className="text-center">{grandFa}</td>
+              {extraCols.map(ec => (
+                <td key={ec.key} colSpan={2} className="text-center">{ec.grand}</td>
+              ))}
+              <td className="text-center">{rate.toFixed(2)}%</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Card>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════════════
    TEST CASE ROW  (used inside pipeline run table + domain detail table)
 ═══════════════════════════════════════════════════════════════════════════ */
 const TCRow = ({ t, idx }) => {
@@ -1411,8 +1562,8 @@ const DomainView = ({ runs }) => {
         <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">Management summary table + drill-down by domain.</p>
       </div>
 
-      {/* Management table */}
-      <DomainTable rows={domainRows} subtitle={runs.map(r => r.pipelineName || r.fileName).join(' · ')} />
+      {/* Management table — Full version with Skipped/Aborted columns */}
+      <DomainTableFull rows={domainRows} subtitle={runs.map(r => r.pipelineName || r.fileName).join(' · ')} />
 
       {/* Domain chip selector */}
       <Card className="p-4">
@@ -1445,10 +1596,11 @@ const DomainView = ({ runs }) => {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="font-bold text-base">{selected} — Test Cases</h3>
-                <div className="flex gap-3 mt-1 text-xs font-semibold">
+                <div className="flex gap-3 mt-1 text-xs font-semibold flex-wrap">
                   <span className="text-emerald-600">✓ {dStats.passed} passed</span>
                   <span className="text-red-500">✗ {dStats.failed} failed</span>
                   {dStats.skipped > 0 && <span className="text-amber-500">⊘ {dStats.skipped} skipped</span>}
+                  {dStats.aborted > 0 && <span className="text-slate-400">⊡ {dStats.aborted} aborted</span>}
                 </div>
               </div>
               <RateBar rate={dStats.successRate} />
