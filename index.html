@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TA Execution - Pipeline Report Generator</title>
+  <title>TA Pipelines Execution Reporting Portal</title>
 
   <!-- ── External Libraries ── -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -833,10 +833,11 @@ const CHART_COLORS = {
    DOMAIN SUMMARY TABLE  (management report — mirrors the screenshot)
 ═══════════════════════════════════════════════════════════════════════════ */
 const DomainTable = ({ rows, title = 'Domain-wise Execution Summary', subtitle }) => {
+  // Executed = total minus skipped (skipped tests were never actually run)
   const totals = { MSG:{ ex:0,pa:0,fa:0 }, UI:{ ex:0,pa:0,fa:0 } };
   rows.forEach(r => {
-    totals.MSG.ex += r.MSG.total;  totals.MSG.pa += r.MSG.passed;  totals.MSG.fa += r.MSG.failed;
-    totals.UI.ex  += r.UI.total;   totals.UI.pa  += r.UI.passed;   totals.UI.fa  += r.UI.failed;
+    totals.MSG.ex += (r.MSG.total - r.MSG.skipped);  totals.MSG.pa += r.MSG.passed;  totals.MSG.fa += r.MSG.failed;
+    totals.UI.ex  += (r.UI.total  - r.UI.skipped);   totals.UI.pa  += r.UI.passed;   totals.UI.fa  += r.UI.failed;
   });
   const grandEx = totals.MSG.ex + totals.UI.ex;
   const grandPa = totals.MSG.pa + totals.UI.pa;
@@ -872,14 +873,17 @@ const DomainTable = ({ rows, title = 'Domain-wise Execution Summary', subtitle }
           </thead>
           <tbody>
             {rows.map(r => {
-              const ex = r.MSG.total + r.UI.total;
+              // Executed excludes skipped (never actually ran)
+              const msgEx = r.MSG.total - r.MSG.skipped;
+              const uiEx  = r.UI.total  - r.UI.skipped;
+              const ex = msgEx + uiEx;
               const pa = r.MSG.passed + r.UI.passed;
               const dr = ex ? (pa / ex) * 100 : 100;
               return (
                 <tr key={r.domain}>
                   <td className="font-semibold text-left-col">{r.domain}</td>
-                  <td className="text-center">{r.MSG.total}</td>
-                  <td className="text-center">{r.UI.total}</td>
+                  <td className="text-center">{msgEx}</td>
+                  <td className="text-center">{uiEx}</td>
                   <td className="text-center font-semibold text-emerald-600 dark:text-emerald-400">{r.MSG.passed}</td>
                   <td className="text-center font-semibold text-emerald-600 dark:text-emerald-400">{r.UI.passed}</td>
                   <td className="text-center font-semibold text-red-600 dark:text-red-400">{r.MSG.failed}</td>
