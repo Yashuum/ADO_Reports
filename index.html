@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TA Pipelines Execution Reporting Portal</title>
+  <title>QA Execution Reporting Portal</title>
 
   <!-- ── External Libraries ── -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -804,10 +804,113 @@ const FilterBtns = ({ options, active, onChange, counts = {} }) => (
   </div>
 );
 
-/* Chart canvas wrapper */
-const ChartBox = ({ type, data, options = {}, height = 260 }) => {
+/* ── Chart Expand Modal ── */
+const ChartModal = ({ title, type, data, options, onClose }) => {
   const canvasRef = useRef(null);
   const chartRef  = useRef(null);
+
+  // Build expanded options: keep caller opts but force data labels visible
+  const expandedOptions = React.useMemo(() => {
+    const isBar      = type === 'bar';
+    const isDoughnut = type === 'doughnut';
+
+    const dataLabelPlugin = {
+      afterDatasetsDraw(chart) {
+        const ctx = chart.ctx;
+        chart.data.datasets.forEach((dataset, di) => {
+          const meta = chart.getDatasetMeta(di);
+          if (meta.hidden) return;
+          meta.data.forEach((element, index) => {
+            const value = dataset.data[index];
+            if (!value && value !== 0) return;
+            ctx.save();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 13px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = isBar ? 'bottom' : 'middle';
+            ctx.shadowColor = 'rgba(0,0,0,0.55)';
+            ctx.shadowBlur = 4;
+            if (isBar) {
+              const { x, y } = element.tooltipPosition();
+              if (value > 0) ctx.fillText(value, x, y - 4);
+            } else if (isDoughnut) {
+              const { x, y } = element.tooltipPosition();
+              ctx.fillText(value, x, y);
+            }
+            ctx.restore();
+          });
+        });
+      }
+    };
+
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      ...options,
+      plugins: {
+        ...(options?.plugins || {}),
+        legend: {
+          ...(options?.plugins?.legend || {}),
+          labels: {
+            ...(options?.plugins?.legend?.labels || {}),
+            font: { size: 13 },
+            boxWidth: 14,
+          }
+        },
+        customDataLabels: dataLabelPlugin,
+      },
+      scales: isBar ? {
+        x: { ...(options?.scales?.x || {}), ticks: { font: { size: 12 } } },
+        y: { ...(options?.scales?.y || {}), ticks: { font: { size: 12 } } },
+      } : undefined,
+    };
+  }, [type, data, options]);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    chartRef.current?.destroy();
+
+    // Register inline plugin
+    const plugin = expandedOptions.plugins?.customDataLabels;
+    const plugins = plugin ? [plugin] : [];
+
+    chartRef.current = new Chart(canvasRef.current, {
+      type, data,
+      options: expandedOptions,
+      plugins,
+    });
+    return () => chartRef.current?.destroy();
+  }, [data, expandedOptions]);
+
+  // Close on backdrop click
+  const onBackdrop = e => { if (e.target === e.currentTarget) onClose(); };
+
+  return (
+    <div className="modal-backdrop" onClick={onBackdrop} style={{zIndex:200}}>
+      <div className="modal-box" style={{maxWidth:'92vw', width:'900px', maxHeight:'88vh'}}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+          <h3 className="font-bold text-base">{title}</h3>
+          <button onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 transition-colors">
+            <Ic.X />
+          </button>
+        </div>
+        {/* Chart */}
+        <div className="p-6" style={{height:'520px'}}>
+          <canvas ref={canvasRef} />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* Chart canvas wrapper — with expand button */
+const ChartBox = ({ title = '', type, data, options = {}, height = 260 }) => {
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+  const [expanded, setExpanded] = useState(false);
+
   useEffect(() => {
     if (!canvasRef.current) return;
     chartRef.current?.destroy();
@@ -817,7 +920,35 @@ const ChartBox = ({ type, data, options = {}, height = 260 }) => {
     });
     return () => chartRef.current?.destroy();
   }, [data]);
-  return <div style={{ height }}><canvas ref={canvasRef} /></div>;
+
+  return (
+    <>
+      <div className="relative group" style={{ height }}>
+        <canvas ref={canvasRef} />
+        {/* Expand button — appears on hover */}
+        <button
+          onClick={() => setExpanded(true)}
+          title="Expand chart"
+          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity
+            bg-slate-800/70 hover:bg-brand-600 text-white rounded-lg p-1.5 backdrop-blur-sm"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+          </svg>
+        </button>
+      </div>
+      {expanded && (
+        <ChartModal
+          title={title}
+          type={type}
+          data={data}
+          options={options}
+          onClose={() => setExpanded(false)}
+        />
+      )}
+    </>
+  );
 };
 
 const CHART_COLORS = {
@@ -1456,26 +1587,26 @@ const DashboardView = ({ runs }) => {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="p-5">
+        <Card className="p-5 relative">
           <h3 className="font-bold text-sm mb-3">Overall Status</h3>
-          <ChartBox type="doughnut" data={pieData} height={210}
+          <ChartBox title="Overall Status" type="doughnut" data={pieData} height={210}
             options={{ plugins: { legend: { position:'bottom', labels: { boxWidth:10, font:{size:11} } } }, cutout: '65%' }} />
           <div className="text-center mt-3">
             <p className="text-3xl font-black">{s.successRate.toFixed(1)}%</p>
             <p className="text-xs text-slate-400 font-semibold">pass rate</p>
           </div>
         </Card>
-        <Card className="p-5 lg:col-span-2">
+        <Card className="p-5 lg:col-span-2 relative">
           <h3 className="font-bold text-sm mb-3">Domain Breakdown</h3>
-          <ChartBox type="bar" data={domainBarData} height={260} options={barOpts} />
+          <ChartBox title="Domain Breakdown" type="bar" data={domainBarData} height={260} options={barOpts} />
         </Card>
       </div>
 
       {/* Per-run comparison (only if > 1 run) */}
       {runs.length > 1 && (
-        <Card className="p-5">
+        <Card className="p-5 relative">
           <h3 className="font-bold text-sm mb-3">Pipeline Run Comparison</h3>
-          <ChartBox type="bar" data={runBarData} height={200} options={barOpts} />
+          <ChartBox title="Pipeline Run Comparison" type="bar" data={runBarData} height={200} options={barOpts} />
         </Card>
       )}
 
