@@ -1842,6 +1842,7 @@ const ReportsView = ({ runs }) => {
   const s          = buildStats(allTests);
   const domainRows = buildDomainReport(allTests);
   const [status, setStatus] = useState('');
+  const [pdfDateTime, setPdfDateTime] = useState('');  // optional override date/time for PDF cover
 
   const exportExcel = () => {
     setStatus('Generating Excel…');
@@ -1851,7 +1852,7 @@ const ReportsView = ({ runs }) => {
       // Sheet 1 — Summary
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
         ['TA Execution — Management Report'],[''],
-        ['Generated', new Date().toLocaleString()],
+        ['Generated', pdfDateTime.trim() ? pdfDateTime.trim() : new Date().toLocaleString()],
         ['Pipeline Runs', runs.length],[''],
         ['Metric','Value'],
         ['Total Tests', s.total],['Passed', s.passed],['Failed', s.failed],
@@ -1864,16 +1865,24 @@ const ReportsView = ({ runs }) => {
       // Sheet 2 — Domain Table
       const dh = ['Domain','Msg Exec','UI Exec','Msg Pass','UI Pass','Msg Fail','UI Fail','Pass Rate'];
       const db = domainRows.map(r => {
-        const t = r.MSG.total + r.UI.total, p = r.MSG.passed + r.UI.passed;
-        return [r.domain, r.MSG.total, r.UI.total, r.MSG.passed, r.UI.passed, r.MSG.failed, r.UI.failed, t ? `${(p/t*100).toFixed(2)}%` : '100%'];
+        const msgEx = r.MSG.total - r.MSG.skipped;
+        const uiEx  = r.UI.total  - r.UI.skipped;
+        const ex    = msgEx + uiEx;
+        const pa    = r.MSG.passed + r.UI.passed;
+        const rate  = ex ? (pa / ex * 100).toFixed(1) + '%' : '100.0%';
+        return [r.domain, msgEx, uiEx, r.MSG.passed, r.UI.passed, r.MSG.failed, r.UI.failed, rate];
       });
-      const subR = ['Sub-Total',
-        domainRows.reduce((a,r)=>a+r.MSG.total,0), domainRows.reduce((a,r)=>a+r.UI.total,0),
+      const msgExTotal = domainRows.reduce((a,r)=>a+(r.MSG.total-r.MSG.skipped),0);
+      const uiExTotal  = domainRows.reduce((a,r)=>a+(r.UI.total-r.UI.skipped),0);
+      const grandEx    = msgExTotal + uiExTotal;
+      const grandPa    = domainRows.reduce((a,r)=>a+r.MSG.passed,0) + domainRows.reduce((a,r)=>a+r.UI.passed,0);
+      const grandFa    = domainRows.reduce((a,r)=>a+r.MSG.failed,0) + domainRows.reduce((a,r)=>a+r.UI.failed,0);
+      const grandRate  = grandEx ? (grandPa / grandEx * 100).toFixed(1) + '%' : '100.0%';
+      const subR  = ['Sub-Total',
+        msgExTotal, uiExTotal,
         domainRows.reduce((a,r)=>a+r.MSG.passed,0), domainRows.reduce((a,r)=>a+r.UI.passed,0),
-        domainRows.reduce((a,r)=>a+r.MSG.failed,0), domainRows.reduce((a,r)=>a+r.UI.failed,0),
-        `${s.successRate.toFixed(2)}%`
-      ];
-      const grandR = ['Grand Total', s.total, '', s.passed, '', s.failed, '', `${s.successRate.toFixed(2)}%`];
+        domainRows.reduce((a,r)=>a+r.MSG.failed,0), domainRows.reduce((a,r)=>a+r.UI.failed,0), grandRate];
+      const grandR = ['Grand Total', grandEx, '', grandPa, '', grandFa, '', grandRate];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([dh, ...db, subR, grandR]), 'Domain Report');
 
       // Sheet 3 — All Tests
@@ -1906,7 +1915,7 @@ const ReportsView = ({ runs }) => {
         XLSX.utils.book_append_sheet(wb, sheet, `Run_${ri+1}`.substring(0, 31));
       });
 
-      XLSX.writeFile(wb, `QA_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+      XLSX.writeFile(wb, `TA_PIPELINE_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
       setStatus('✓ Excel downloaded!');
     } catch (e) { setStatus(`Error: ${e.message}`); }
     setTimeout(() => setStatus(''), 4000);
@@ -1920,6 +1929,15 @@ const ReportsView = ({ runs }) => {
       const W = doc.internal.pageSize.getWidth();
       const H = doc.internal.pageSize.getHeight();
 
+      // Use user-supplied date/time if provided, else current export time
+      const coverDateTime = pdfDateTime.trim()
+        ? pdfDateTime.trim()
+        : new Date().toLocaleString();
+
+      // Executed = total − skipped (used consistently across cover + all pages)
+      const covExec     = s.total - s.skipped;
+      const covRate     = covExec ? (s.passed / covExec * 100).toFixed(2) : '100.00';
+
       // ── Cover ──
       doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, H, 'F');
       doc.setFillColor(14, 165, 233); doc.rect(0, 0, 8, H, 'F');
@@ -1928,39 +1946,50 @@ const ReportsView = ({ runs }) => {
       doc.setTextColor(255, 255, 255); doc.setFontSize(28);
       doc.text('Execution Report', 16, 38);
       doc.setTextColor(148, 163, 184); doc.setFontSize(11); doc.setFont('helvetica','normal');
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 16, 50);
-      doc.text(`Pipeline Runs: ${runs.length}  ·  Tests: ${s.total}  ·  Pass Rate: ${s.successRate.toFixed(2)}%`, 16, 59);
+      doc.text(`Generated: ${coverDateTime}`, 16, 50);
+      doc.text(`Pipeline Runs: ${runs.length}  ·  Executed: ${covExec}  ·  Pass Rate: ${covRate}%`, 16, 59);
 
-      // KPI boxes on cover
-      [['TOTAL',s.total,'#3b82f6'],['PASSED',s.passed,'#10b981'],['FAILED',s.failed,'#ef4444'],['SKIPPED',s.skipped,'#f59e0b'],['ABORTED',s.aborted,'#8b5cf6']].forEach(([lbl,val,hex],i) => {
-        const x = 16 + i * 54;
-        doc.setFillColor(30, 41, 59); doc.roundedRect(x, 75, 50, 24, 2, 2, 'F');
+      // KPI boxes on cover — 4 boxes only (no SKIPPED)
+      [['EXECUTED',covExec,'#3b82f6'],['PASSED',s.passed,'#10b981'],['FAILED',s.failed,'#ef4444'],['ABORTED',s.aborted,'#8b5cf6']].forEach(([lbl,val,hex],i) => {
+        const x = 16 + i * 68;
+        doc.setFillColor(30, 41, 59); doc.roundedRect(x, 75, 62, 24, 2, 2, 'F');
         const [r,g,b] = hex.match(/\w\w/g).map(c => parseInt(c, 16));
         doc.setTextColor(r,g,b); doc.setFontSize(18); doc.setFont('helvetica','bold');
-        doc.text(String(val), x + 25, 90, { align: 'center' });
+        doc.text(String(val), x + 31, 90, { align: 'center' });
         doc.setTextColor(148,163,184); doc.setFontSize(7); doc.setFont('helvetica','normal');
-        doc.text(lbl, x + 25, 97, { align: 'center' });
+        doc.text(lbl, x + 31, 97, { align: 'center' });
       });
 
-      // ── Page 2: Domain Table ──
+      // ── Page 2: Domain Table (executed = total − skipped, matching Dashboard) ──
       doc.addPage();
       doc.setFillColor(248, 250, 252); doc.rect(0, 0, W, H, 'F');
       doc.setFillColor(15, 23, 42); doc.rect(0, 0, W, 12, 'F');
       doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
       doc.text('TA Execution |  DOMAIN-WISE SUMMARY', 10, 8);
       doc.setTextColor(15,23,42); doc.setFontSize(15); doc.text('Management Summary Report', 14, 24);
+
+      const pdfMsgExTotal = domainRows.reduce((a,r)=>a+(r.MSG.total-r.MSG.skipped),0);
+      const pdfUiExTotal  = domainRows.reduce((a,r)=>a+(r.UI.total-r.UI.skipped),0);
+      const pdfGrandEx    = pdfMsgExTotal + pdfUiExTotal;
+      const pdfGrandPa    = domainRows.reduce((a,r)=>a+r.MSG.passed+r.UI.passed,0);
+      const pdfGrandFa    = domainRows.reduce((a,r)=>a+r.MSG.failed+r.UI.failed,0);
+      const pdfGrandRate  = pdfGrandEx ? `${(pdfGrandPa/pdfGrandEx*100).toFixed(1)}%` : '100.0%';
+
       doc.autoTable({
         startY: 28,
         head: [['Domain / Module','Msg Exec','UI Exec','Msg Pass','UI Pass','Msg Fail','UI Fail','Pass Rate']],
         body: domainRows.map(r => {
-          const t = r.MSG.total+r.UI.total, p = r.MSG.passed+r.UI.passed;
-          return [r.domain, r.MSG.total, r.UI.total, r.MSG.passed, r.UI.passed, r.MSG.failed, r.UI.failed, t ? `${(p/t*100).toFixed(1)}%` : '100%'];
+          const msgEx = r.MSG.total - r.MSG.skipped;
+          const uiEx  = r.UI.total  - r.UI.skipped;
+          const ex = msgEx + uiEx, pa = r.MSG.passed + r.UI.passed;
+          return [r.domain, msgEx, uiEx, r.MSG.passed, r.UI.passed, r.MSG.failed, r.UI.failed,
+            ex ? `${(pa/ex*100).toFixed(1)}%` : '100%'];
         }),
         foot: [
-          ['Sub-Total', domainRows.reduce((a,r)=>a+r.MSG.total,0), domainRows.reduce((a,r)=>a+r.UI.total,0),
+          ['Sub-Total', pdfMsgExTotal, pdfUiExTotal,
            domainRows.reduce((a,r)=>a+r.MSG.passed,0), domainRows.reduce((a,r)=>a+r.UI.passed,0),
-           domainRows.reduce((a,r)=>a+r.MSG.failed,0), domainRows.reduce((a,r)=>a+r.UI.failed,0), `${s.successRate.toFixed(1)}%`],
-          ['Grand Total', s.total, '', s.passed, '', s.failed, '', `${s.successRate.toFixed(1)}%`],
+           domainRows.reduce((a,r)=>a+r.MSG.failed,0), domainRows.reduce((a,r)=>a+r.UI.failed,0), pdfGrandRate],
+          ['Grand Total', pdfGrandEx, '', pdfGrandPa, '', pdfGrandFa, '', pdfGrandRate],
         ],
         theme: 'striped',
         headStyles: { fillColor:[15,23,42], textColor:[255,255,255], fontSize:8, fontStyle:'bold' },
@@ -1981,10 +2010,12 @@ const ReportsView = ({ runs }) => {
       doc.setTextColor(15,23,42); doc.setFontSize(15); doc.text('Pipeline Run Summary', 14, 24);
       doc.autoTable({
         startY: 28,
-        head: [['Pipeline Run','Total','Passed','Failed','Skipped','Aborted','Pass Rate']],
+        head: [['Pipeline Run','Executed','Passed','Failed','Aborted','Pass Rate']],
         body: runs.map(r => {
-          const rs = buildStats(r.tests);
-          return [r.pipelineName||r.fileName, rs.total, rs.passed, rs.failed, rs.skipped, rs.aborted, `${rs.successRate.toFixed(1)}%`];
+          const rs   = buildStats(r.tests);
+          const exec = rs.total - rs.skipped;
+          const rate = exec ? (rs.passed / exec * 100).toFixed(1) : '100.0';
+          return [r.pipelineName||r.fileName, exec, rs.passed, rs.failed, rs.aborted, `${rate}%`];
         }),
         theme: 'striped',
         headStyles: { fillColor:[15,23,42], textColor:[255,255,255], fontSize:8 },
@@ -2021,11 +2052,11 @@ const ReportsView = ({ runs }) => {
       for (let i = 1; i <= total; i++) {
         doc.setPage(i);
         doc.setFontSize(7); doc.setTextColor(150,150,150);
-        doc.text(`TA Execution - Pipeline Report Generator  ·  ${runs.map(r=>r.pipelineName||r.fileName).join(', ').substring(0,60)}  ·  Page ${i} of ${total}  ·  ${new Date().toLocaleDateString()}`,
+        doc.text(`Page ${i} of ${total}  ·  ${coverDateTime}`,
           W/2, H-5, { align: 'center' });
       }
 
-      doc.save(`QA_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+      doc.save(`TA_PIPELINE_Report_${new Date().toISOString().slice(0,10)}.pdf`);
       setStatus('✓ PDF downloaded!');
     } catch (e) { setStatus(`Error: ${e.message}`); }
     setTimeout(() => setStatus(''), 4000);
@@ -2068,12 +2099,25 @@ const ReportsView = ({ runs }) => {
           </div>
           <h3 className="font-bold mb-1">PDF Report (.pdf)</h3>
           <p className="text-sm text-slate-500 mb-1">4 pages:</p>
-          <ul className="text-xs text-slate-400 space-y-0.5 mb-5 list-disc list-inside">
+          <ul className="text-xs text-slate-400 space-y-0.5 mb-4 list-disc list-inside">
             <li>Cover page with KPI boxes</li>
             <li>Domain-wise management table</li>
             <li>Pipeline run comparison</li>
             <li>Failed test cases (up to 200)</li>
           </ul>
+          {/* Optional date/time override for PDF cover */}
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Cover Date &amp; Time <span className="font-normal text-slate-400">(optional — leave blank to use export time)</span>
+            </label>
+            <input
+              type="text"
+              value={pdfDateTime}
+              onChange={e => setPdfDateTime(e.target.value)}
+              placeholder={`e.g. ${new Date().toLocaleString()}`}
+              className="w-full text-sm px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-400"
+            />
+          </div>
           <Btn onClick={exportPDF} variant="danger" className="w-full justify-center"><Ic.Download />Download PDF</Btn>
         </Card>
       </div>
